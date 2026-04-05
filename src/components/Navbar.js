@@ -14,7 +14,7 @@ function Navbar() {
       const interval = setInterval(fetchNotifications, 30000);
       return () => clearInterval(interval);
     }
-  }, [userId]);
+  }, []);
 
   const fetchNotifications = async () => {
     try {
@@ -33,6 +33,7 @@ function Navbar() {
         <Link to="/find-ride" style={styles.link}>Find a Ride</Link>
         <Link to="/post-ride" style={styles.link}>Post a Ride</Link>
         <Link to="/my-rides" style={styles.link}>My Rides</Link>
+        <Link to="/messages" style={styles.link}>Messages</Link>
         {userName ? (
           <>
             <div style={styles.bellContainer}>

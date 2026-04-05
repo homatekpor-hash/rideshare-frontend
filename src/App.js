@@ -6,6 +6,7 @@ import FindRide from './pages/FindRide';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import MyRides from './pages/MyRides';
+import Messages from './pages/Messages';
 import Navbar from './components/Navbar';
 
 function App() {
@@ -19,6 +20,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/my-rides" element={<MyRides />} />
+        <Route path="/messages" element={<Messages />} />
       </Routes>
     </Router>
   );

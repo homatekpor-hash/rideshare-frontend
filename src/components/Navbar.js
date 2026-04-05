@@ -34,6 +34,7 @@ function Navbar() {
         <Link to="/post-ride" style={styles.link}>Post a Ride</Link>
         <Link to="/my-rides" style={styles.link}>My Rides</Link>
         <Link to="/messages" style={styles.link}>Messages</Link>
+        <Link to="/ratings" style={styles.link}>Ratings</Link>
         {userName ? (
           <>
             <div style={styles.bellContainer}>

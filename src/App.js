@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import MyRides from './pages/MyRides';
 import Messages from './pages/Messages';
+import Ratings from './pages/Ratings';
 import Navbar from './components/Navbar';
 
 function App() {
@@ -21,6 +22,7 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/my-rides" element={<MyRides />} />
         <Route path="/messages" element={<Messages />} />
+        <Route path="/ratings" element={<Ratings />} />
       </Routes>
     </Router>
   );

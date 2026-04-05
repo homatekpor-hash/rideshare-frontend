@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import axios from 'axios';
 
 function Navbar() {
@@ -7,6 +7,7 @@ function Navbar() {
   const userId = localStorage.getItem('userId');
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const location = useLocation();
 
   useEffect(() => {
     if (userId) {
@@ -18,30 +19,31 @@ function Navbar() {
 
   const fetchNotifications = async () => {
     try {
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/notifications/${userId}`);
+      const response = await axios.get(`/notifications/${userId}`);
       setNotifications(response.data.notifications);
     } catch (error) {
       console.error('Error fetching notifications:', error);
     }
   };
 
+  const isActive = (path) => location.pathname === path;
+
   return (
     <nav style={styles.nav}>
-      <div style={styles.logo}>🚗 RideShare</div>
+      <Link to="/" style={styles.logo}>🚗 RideShare</Link>
       <div style={styles.links}>
-        <Link to="/" style={styles.link}>Home</Link>
-        <Link to="/find-ride" style={styles.link}>Find a Ride</Link>
-        <Link to="/post-ride" style={styles.link}>Post a Ride</Link>
-        <Link to="/my-rides" style={styles.link}>My Rides</Link>
-        <Link to="/messages" style={styles.link}>Messages</Link>
-        <Link to="/ratings" style={styles.link}>Ratings</Link>
+        <Link to="/" style={{...styles.link, ...(isActive('/') ? styles.activeLink : {})}}>Home</Link>
+        <Link to="/find-ride" style={{...styles.link, ...(isActive('/find-ride') ? styles.activeLink : {})}}>Find a Ride</Link>
+        <Link to="/post-ride" style={{...styles.link, ...(isActive('/post-ride') ? styles.activeLink : {})}}>Post a Ride</Link>
+        <Link to="/my-rides" style={{...styles.link, ...(isActive('/my-rides') ? styles.activeLink : {})}}>My Rides</Link>
+        <Link to="/messages" style={{...styles.link, ...(isActive('/messages') ? styles.activeLink : {})}}>Messages</Link>
+        <Link to="/ratings" style={{...styles.link, ...(isActive('/ratings') ? styles.activeLink : {})}}>Ratings</Link>
+        <Link to="/profile" style={{...styles.link, ...(isActive('/profile') ? styles.activeLink : {})}}>Profile</Link>
+        <Link to="/admin" style={{...styles.link, ...(isActive('/admin') ? styles.activeLink : {})}}>Admin</Link>
         {userName ? (
           <>
             <div style={styles.bellContainer}>
-              <button
-                style={styles.bell}
-                onClick={() => setShowNotifications(!showNotifications)}
-              >
+              <button style={styles.bell} onClick={() => setShowNotifications(!showNotifications)}>
                 🔔
                 {notifications.length > 0 && (
                   <span style={styles.badge}>{notifications.length}</span>
@@ -67,13 +69,13 @@ function Navbar() {
                 </div>
               )}
             </div>
-            <span style={styles.username}>👤 {userName}</span>
+            <div style={styles.userBadge}>👤 {userName}</div>
           </>
         ) : (
-          <>
-            <Link to="/login" style={styles.link}>Login</Link>
-            <Link to="/register" style={styles.link}>Register</Link>
-          </>
+          <div style={styles.authButtons}>
+            <Link to="/login" style={styles.loginBtn}>Login</Link>
+            <Link to="/register" style={styles.registerBtn}>Register</Link>
+          </div>
         )}
       </div>
     </nav>
@@ -85,33 +87,71 @@ const styles = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '16px 32px',
+    padding: '0 32px',
     backgroundColor: '#1a73e8',
-    color: 'white',
-    position: 'relative',
+    height: '64px',
+    boxShadow: '0 2px 10px rgba(0,0,0,0.15)',
+    position: 'sticky',
+    top: 0,
     zIndex: 1000,
   },
   logo: {
     fontSize: '22px',
     fontWeight: 'bold',
+    color: 'white',
+    textDecoration: 'none',
+    letterSpacing: '0.5px',
   },
   links: {
     display: 'flex',
-    gap: '24px',
     alignItems: 'center',
+    gap: '8px',
   },
   link: {
+    color: 'rgba(255,255,255,0.85)',
+    textDecoration: 'none',
+    fontSize: '14px',
+    padding: '6px 12px',
+    borderRadius: '8px',
+  },
+  activeLink: {
+    color: 'white',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    fontWeight: 'bold',
+  },
+  authButtons: {
+    display: 'flex',
+    gap: '8px',
+    marginLeft: '8px',
+  },
+  loginBtn: {
     color: 'white',
     textDecoration: 'none',
-    fontSize: '16px',
+    fontSize: '14px',
+    padding: '8px 16px',
+    borderRadius: '8px',
+    border: '1px solid rgba(255,255,255,0.5)',
   },
-  username: {
-    color: 'white',
-    fontSize: '16px',
+  registerBtn: {
+    color: '#1a73e8',
+    textDecoration: 'none',
+    fontSize: '14px',
+    padding: '8px 16px',
+    borderRadius: '8px',
+    backgroundColor: 'white',
     fontWeight: 'bold',
+  },
+  userBadge: {
+    color: 'white',
+    fontSize: '14px',
+    padding: '6px 12px',
+    borderRadius: '8px',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    marginLeft: '8px',
   },
   bellContainer: {
     position: 'relative',
+    marginLeft: '8px',
   },
   bell: {
     background: 'none',
@@ -125,7 +165,7 @@ const styles = {
     position: 'absolute',
     top: '-8px',
     right: '-8px',
-    backgroundColor: 'red',
+    backgroundColor: '#ea4335',
     color: 'white',
     borderRadius: '50%',
     width: '18px',

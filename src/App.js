@@ -8,6 +8,8 @@ import Register from './pages/Register';
 import MyRides from './pages/MyRides';
 import Messages from './pages/Messages';
 import Ratings from './pages/Ratings';
+import Profile from './pages/Profile';
+import Admin from './pages/Admin';
 import Navbar from './components/Navbar';
 
 function App() {
@@ -23,6 +25,8 @@ function App() {
         <Route path="/my-rides" element={<MyRides />} />
         <Route path="/messages" element={<Messages />} />
         <Route path="/ratings" element={<Ratings />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/admin" element={<Admin />} />
       </Routes>
     </Router>
   );

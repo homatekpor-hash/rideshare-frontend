@@ -18,7 +18,7 @@ function MyRides() {
 
   const fetchMyRides = async () => {
     try {
-      const response = await axios.get(`/my-rides/${userId}`);
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/my-rides/${userId}`);
       setMyPostedRides(response.data.rides);
     } catch (error) {
       console.error('Error fetching rides:', error);
@@ -27,7 +27,7 @@ function MyRides() {
 
   const fetchMyBookings = async () => {
     try {
-      const response = await axios.get(`/my-bookings/${userId}`);
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/my-bookings/${userId}`);
       setMyBookings(response.data.bookings);
     } catch (error) {
       console.error('Error fetching bookings:', error);
@@ -36,7 +36,7 @@ function MyRides() {
 
   const handleCancelRide = async (rideId) => {
     try {
-      await axios.put(`/rides/${rideId}/cancel`);
+      await axios.put(`${process.env.REACT_APP_API_URL}/rides/${rideId}/cancel`);
       setMessage('Ride cancelled successfully!');
       fetchMyRides();
     } catch (error) {
@@ -46,7 +46,7 @@ function MyRides() {
 
   const handleCancelBooking = async (bookingId) => {
     try {
-      await axios.put(`/bookings/${bookingId}/cancel`);
+      await axios.put(`${process.env.REACT_APP_API_URL}/bookings/${bookingId}/cancel`);
       setMessage('Booking cancelled successfully!');
       fetchMyBookings();
     } catch (error) {

@@ -61,9 +61,7 @@ function Ratings() {
     }
   };
 
-  const renderStars = (count) => {
-    return '⭐'.repeat(count);
-  };
+  const renderStars = (count) => '⭐'.repeat(count);
 
   if (!userId) {
     return (
@@ -77,7 +75,6 @@ function Ratings() {
     <div style={styles.container}>
       <h2 style={styles.pageTitle}>Ratings ⭐</h2>
 
-      {/* My Rating as a Driver */}
       <div style={styles.section}>
         <h3 style={styles.sectionTitle}>My Driver Rating</h3>
         <div style={styles.avgCard}>
@@ -101,7 +98,6 @@ function Ratings() {
         )}
       </div>
 
-      {/* Rate a Driver */}
       <div style={styles.section}>
         <h3 style={styles.sectionTitle}>Rate a Driver</h3>
         {myBookings.length === 0 ? (

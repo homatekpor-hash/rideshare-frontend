@@ -7,9 +7,9 @@ function Profile() {
   const [avgRating, setAvgRating] = useState(0);
   const [totalRides, setTotalRides] = useState(0);
   const [message, setMessage] = useState('');
+  const [searchId, setSearchId] = useState('');
 
   const userId = localStorage.getItem('userId');
-  const [searchId, setSearchId] = useState('');
   const [viewingId, setViewingId] = useState(userId);
 
   useEffect(() => {
@@ -69,7 +69,6 @@ function Profile() {
     <div style={styles.container}>
       <h2 style={styles.pageTitle}>Driver Profile 👤</h2>
 
-      {/* Search for a driver */}
       <div style={styles.searchBox}>
         <input
           style={styles.input}
@@ -91,7 +90,6 @@ function Profile() {
 
       {user && (
         <>
-          {/* Profile Card */}
           <div style={styles.profileCard}>
             <div style={styles.avatar}>
               {user.name.charAt(0).toUpperCase()}
@@ -105,7 +103,6 @@ function Profile() {
             </div>
           </div>
 
-          {/* Stats */}
           <div style={styles.statsRow}>
             <div style={styles.statCard}>
               <p style={styles.statNumber}>{totalRides}</p>
@@ -121,7 +118,6 @@ function Profile() {
             </div>
           </div>
 
-          {/* Reviews */}
           <div style={styles.section}>
             <h3 style={styles.sectionTitle}>Reviews ⭐</h3>
             {ratings.length === 0 ? (

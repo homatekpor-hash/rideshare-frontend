@@ -80,8 +80,6 @@ function Messages() {
     <div style={styles.container}>
       <div style={styles.sidebar}>
         <h3 style={styles.sidebarTitle}>Messages</h3>
-
-        {/* New Message */}
         <div style={styles.newChat}>
           <input
             style={styles.input}
@@ -110,7 +108,6 @@ function Messages() {
           </button>
         </div>
 
-        {/* Conversations */}
         {conversations.length === 0 ? (
           <p style={styles.empty}>No conversations yet.</p>
         ) : (
@@ -182,7 +179,7 @@ function Messages() {
 const styles = {
   container: {
     display: 'flex',
-    height: 'calc(100vh - 60px)',
+    height: 'calc(100vh - 64px)',
     backgroundColor: '#f5f5f5',
   },
   sidebar: {

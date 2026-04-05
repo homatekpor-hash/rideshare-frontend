@@ -19,7 +19,7 @@ function Navbar() {
 
   const fetchNotifications = async () => {
     try {
-      const response = await axios.get(`/notifications/${userId}`);
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/notifications/${userId}`);
       setNotifications(response.data.notifications);
     } catch (error) {
       console.error('Error fetching notifications:', error);

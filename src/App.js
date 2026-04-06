@@ -10,6 +10,7 @@ import Messages from './pages/Messages';
 import Ratings from './pages/Ratings';
 import Profile from './pages/Profile';
 import Admin from './pages/Admin';
+import Earnings from './pages/Earnings';
 import Navbar from './components/Navbar';
 
 function App() {
@@ -27,6 +28,7 @@ function App() {
         <Route path="/ratings" element={<Ratings />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/admin" element={<Admin />} />
+        <Route path="/earnings" element={<Earnings />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>

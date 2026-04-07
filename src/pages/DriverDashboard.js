@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import L from 'react-leaflet/node_modules/leaflet';
+import L from 'leaflet';
 
 const API = 'https://rideshare-backend-production-32f5.up.railway.app';
 
@@ -163,7 +163,7 @@ function DriverDashboard() {
         canvas.getContext('2d').drawImage(img, 0, 0, width, height);
         const compressed = canvas.toDataURL('image/jpeg', 0.6);
         setDocuments(prev => ({ ...prev, [type]: compressed }));
-        setMessage(`Document uploaded! Click Submit to save.`);
+        setMessage('Document uploaded! Click Submit to save.');
         setTimeout(() => setMessage(''), 3000);
       };
       img.src = reader.result;
@@ -257,11 +257,15 @@ function DriverDashboard() {
       </div>
 
       <div style={styles.main}>
-        {message && <div style={{...styles.successMsg, backgroundColor: message.includes('Online') ? '#e6f4ea' : message.includes('Offline') ? '#fce8e6' : '#e6f4ea', color: message.includes('Online') ? '#34a853' : message.includes('Offline') ? '#ea4335' : '#34a853'}}>{message}</div>}
+        {message && (
+          <div style={{...styles.successMsg, backgroundColor: message.includes('Online') ? '#e6f4ea' : message.includes('Offline') ? '#fce8e6' : '#e6f4ea', color: message.includes('Online') ? '#34a853' : message.includes('Offline') ? '#ea4335' : '#34a853'}}>
+            {message}
+          </div>
+        )}
 
         {activeTab === 'home' && (
           <div>
-            {/* Uber-style Online/Offline Section */}
+            {/* Uber-style Online/Offline */}
             <div style={{...styles.uberCard, backgroundColor: isOnline ? '#f0fff4' : '#f8f9fa', border: `2px solid ${isOnline ? '#34a853' : '#ddd'}`}}>
               <div style={styles.uberHeader}>
                 <div>
@@ -273,11 +277,7 @@ function DriverDashboard() {
                   </p>
                 </div>
                 <button
-                  style={{
-                    ...styles.uberToggle,
-                    backgroundColor: isOnline ? '#ea4335' : '#34a853',
-                    transform: toggling ? 'scale(0.95)' : 'scale(1)',
-                  }}
+                  style={{...styles.uberToggle, backgroundColor: isOnline ? '#ea4335' : '#34a853', transform: toggling ? 'scale(0.95)' : 'scale(1)'}}
                   onClick={handleToggleOnline}
                   disabled={toggling}
                 >
@@ -285,23 +285,15 @@ function DriverDashboard() {
                 </button>
               </div>
 
-              {/* Map */}
               <div style={{...styles.mapWrapper, filter: isOnline ? 'none' : 'grayscale(100%) opacity(0.5)'}}>
-                <MapContainer
-                  center={[5.6037, -0.1870]}
-                  zoom={13}
-                  style={styles.map}
-                  zoomControl={false}
-                >
+                <MapContainer center={[5.6037, -0.1870]} zoom={13} style={styles.map} zoomControl={false}>
                   <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                   <LocationMarker isOnline={isOnline} />
                 </MapContainer>
                 {!isOnline && (
                   <div style={styles.mapOverlay}>
                     <p style={styles.mapOverlayText}>Go Online to activate your location</p>
-                    <button style={styles.mapOverlayBtn} onClick={handleToggleOnline}>
-                      GO ONLINE
-                    </button>
+                    <button style={styles.mapOverlayBtn} onClick={handleToggleOnline}>GO ONLINE</button>
                   </div>
                 )}
               </div>
@@ -378,8 +370,8 @@ function DriverDashboard() {
               <div style={styles.earningsStat}><p style={styles.earningsBig}>{earnings.totalPassengers || 0}</p><p style={styles.earningsLbl}>Total Passengers</p></div>
             </div>
             <h3 style={styles.sectionTitle}>Trip History</h3>
-            {earnings.earnings?.length === 0 ? <p style={styles.empty}>No earnings yet. Post a ride with a price!</p> : (
-              earnings.earnings?.map(e => (
+            {!earnings.earnings || earnings.earnings.length === 0 ? <p style={styles.empty}>No earnings yet. Post a ride with a price!</p> : (
+              earnings.earnings.map(e => (
                 <div key={e.id} style={styles.rideCard}>
                   <div>
                     <p style={styles.rideRoute}>📍 {e.from_location} → {e.to_location}</p>
@@ -441,93 +433,70 @@ function DriverDashboard() {
               {documents.rejection_reason && <p style={styles.rejectionReason}>❗ Rejection reason: {documents.rejection_reason}</p>}
             </div>
 
-            <div style={styles.docSection}>
-              <h3 style={styles.docSectionTitle}>📸 Face Photo (Selfie)</h3>
-              <p style={styles.docHint}>Take a clear selfie. This will be compared with your ID photo by admin.</p>
-              <div style={styles.docRow}>
-                <div style={styles.docBox}>
-                  {documents.face_photo ? <img src={documents.face_photo} alt="Face" style={styles.docPreview} /> : <div style={styles.docPlaceholder}>📷 No photo yet</div>}
-                  <label style={styles.uploadBtn}>
-                    {documents.face_photo ? '📷 Retake Selfie' : '📷 Take Selfie'}
-                    <input type="file" accept="image/*" capture="user" onChange={(e) => handleDocumentUpload('face_photo', e)} style={{ display: 'none' }} />
-                  </label>
+            {[
+              { key: 'face_photo', title: '📸 Face Photo (Selfie)', hint: 'Take a clear selfie. This will be compared with your ID photo by admin.', front: true, capture: 'user' },
+            ].map(doc => (
+              <div key={doc.key} style={styles.docSection}>
+                <h3 style={styles.docSectionTitle}>{doc.title}</h3>
+                <p style={styles.docHint}>{doc.hint}</p>
+                <div style={styles.docRow}>
+                  <div style={styles.docBox}>
+                    {documents[doc.key] ? <img src={documents[doc.key]} alt={doc.title} style={styles.docPreview} /> : <div style={styles.docPlaceholder}>📷 No photo yet</div>}
+                    <label style={styles.uploadBtn}>
+                      {documents[doc.key] ? '📷 Retake' : '📷 Upload'}
+                      <input type="file" accept="image/*" capture={doc.capture} onChange={(e) => handleDocumentUpload(doc.key, e)} style={{ display: 'none' }} />
+                    </label>
+                  </div>
                 </div>
               </div>
-            </div>
+            ))}
 
-            <div style={styles.docSection}>
-              <h3 style={styles.docSectionTitle}>🪪 Driver's License</h3>
-              <p style={styles.docHint}>Upload clear photos of the front and back of your driver's license.</p>
-              <div style={styles.docRow}>
-                <div style={styles.docBox}>
-                  <p style={styles.docLabel}>Front</p>
-                  {documents.license_front ? <img src={documents.license_front} alt="License Front" style={styles.docPreview} /> : <div style={styles.docPlaceholder}>📄 Not uploaded</div>}
-                  <label style={styles.uploadBtn}>
-                    {documents.license_front ? 'Re-upload' : 'Upload Front'}
-                    <input type="file" accept="image/*" onChange={(e) => handleDocumentUpload('license_front', e)} style={{ display: 'none' }} />
-                  </label>
-                </div>
-                <div style={styles.docBox}>
-                  <p style={styles.docLabel}>Back</p>
-                  {documents.license_back ? <img src={documents.license_back} alt="License Back" style={styles.docPreview} /> : <div style={styles.docPlaceholder}>📄 Not uploaded</div>}
-                  <label style={styles.uploadBtn}>
-                    {documents.license_back ? 'Re-upload' : 'Upload Back'}
-                    <input type="file" accept="image/*" onChange={(e) => handleDocumentUpload('license_back', e)} style={{ display: 'none' }} />
-                  </label>
+            {[
+              { frontKey: 'license_front', backKey: 'license_back', title: "🪪 Driver's License", hint: "Upload clear photos of the front and back of your driver's license." },
+              { frontKey: 'national_id_front', backKey: 'national_id_back', title: '🇬🇭 Ghana Card (ECOWAS Identity Card)', hint: 'Upload clear photos of the front and back of your Ghana Card.' },
+            ].map(doc => (
+              <div key={doc.frontKey} style={styles.docSection}>
+                <h3 style={styles.docSectionTitle}>{doc.title}</h3>
+                <p style={styles.docHint}>{doc.hint}</p>
+                <div style={styles.docRow}>
+                  <div style={styles.docBox}>
+                    <p style={styles.docLabel}>Front</p>
+                    {documents[doc.frontKey] ? <img src={documents[doc.frontKey]} alt="Front" style={styles.docPreview} /> : <div style={styles.docPlaceholder}>📄 Not uploaded</div>}
+                    <label style={styles.uploadBtn}>
+                      {documents[doc.frontKey] ? 'Re-upload' : 'Upload Front'}
+                      <input type="file" accept="image/*" onChange={(e) => handleDocumentUpload(doc.frontKey, e)} style={{ display: 'none' }} />
+                    </label>
+                  </div>
+                  <div style={styles.docBox}>
+                    <p style={styles.docLabel}>Back</p>
+                    {documents[doc.backKey] ? <img src={documents[doc.backKey]} alt="Back" style={styles.docPreview} /> : <div style={styles.docPlaceholder}>📄 Not uploaded</div>}
+                    <label style={styles.uploadBtn}>
+                      {documents[doc.backKey] ? 'Re-upload' : 'Upload Back'}
+                      <input type="file" accept="image/*" onChange={(e) => handleDocumentUpload(doc.backKey, e)} style={{ display: 'none' }} />
+                    </label>
+                  </div>
                 </div>
               </div>
-            </div>
+            ))}
 
-            <div style={styles.docSection}>
-              <h3 style={styles.docSectionTitle}>🇬🇭 Ghana Card (ECOWAS Identity Card)</h3>
-              <p style={styles.docHint}>Upload clear photos of the front and back of your Ghana Card.</p>
-              <div style={styles.docRow}>
-                <div style={styles.docBox}>
-                  <p style={styles.docLabel}>Front</p>
-                  {documents.national_id_front ? <img src={documents.national_id_front} alt="Ghana Card Front" style={styles.docPreview} /> : <div style={styles.docPlaceholder}>📄 Not uploaded</div>}
-                  <label style={styles.uploadBtn}>
-                    {documents.national_id_front ? 'Re-upload' : 'Upload Front'}
-                    <input type="file" accept="image/*" onChange={(e) => handleDocumentUpload('national_id_front', e)} style={{ display: 'none' }} />
-                  </label>
-                </div>
-                <div style={styles.docBox}>
-                  <p style={styles.docLabel}>Back</p>
-                  {documents.national_id_back ? <img src={documents.national_id_back} alt="Ghana Card Back" style={styles.docPreview} /> : <div style={styles.docPlaceholder}>📄 Not uploaded</div>}
-                  <label style={styles.uploadBtn}>
-                    {documents.national_id_back ? 'Re-upload' : 'Upload Back'}
-                    <input type="file" accept="image/*" onChange={(e) => handleDocumentUpload('national_id_back', e)} style={{ display: 'none' }} />
-                  </label>
+            {[
+              { key: 'insurance_image', title: '🚗 Vehicle Insurance Sticker', hint: 'Upload a clear photo of your vehicle insurance sticker.' },
+              { key: 'roadworthiness_image', title: '✅ Roadworthiness Sticker', hint: 'Upload a clear photo of your vehicle roadworthiness sticker.' },
+            ].map(doc => (
+              <div key={doc.key} style={styles.docSection}>
+                <h3 style={styles.docSectionTitle}>{doc.title}</h3>
+                <p style={styles.docHint}>{doc.hint}</p>
+                <div style={styles.docRow}>
+                  <div style={styles.docBox}>
+                    {documents[doc.key] ? <img src={documents[doc.key]} alt={doc.title} style={styles.docPreview} /> : <div style={styles.docPlaceholder}>📄 Not uploaded</div>}
+                    <label style={styles.uploadBtn}>
+                      {documents[doc.key] ? 'Re-upload' : 'Upload'}
+                      <input type="file" accept="image/*" onChange={(e) => handleDocumentUpload(doc.key, e)} style={{ display: 'none' }} />
+                    </label>
+                  </div>
                 </div>
               </div>
-            </div>
-
-            <div style={styles.docSection}>
-              <h3 style={styles.docSectionTitle}>🚗 Vehicle Insurance Sticker</h3>
-              <p style={styles.docHint}>Upload a clear photo of your vehicle insurance sticker.</p>
-              <div style={styles.docRow}>
-                <div style={styles.docBox}>
-                  {documents.insurance_image ? <img src={documents.insurance_image} alt="Insurance" style={styles.docPreview} /> : <div style={styles.docPlaceholder}>📄 Not uploaded</div>}
-                  <label style={styles.uploadBtn}>
-                    {documents.insurance_image ? 'Re-upload' : 'Upload Insurance'}
-                    <input type="file" accept="image/*" onChange={(e) => handleDocumentUpload('insurance_image', e)} style={{ display: 'none' }} />
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <div style={styles.docSection}>
-              <h3 style={styles.docSectionTitle}>✅ Roadworthiness Sticker</h3>
-              <p style={styles.docHint}>Upload a clear photo of your vehicle roadworthiness sticker.</p>
-              <div style={styles.docRow}>
-                <div style={styles.docBox}>
-                  {documents.roadworthiness_image ? <img src={documents.roadworthiness_image} alt="Roadworthiness" style={styles.docPreview} /> : <div style={styles.docPlaceholder}>📄 Not uploaded</div>}
-                  <label style={styles.uploadBtn}>
-                    {documents.roadworthiness_image ? 'Re-upload' : 'Upload Sticker'}
-                    <input type="file" accept="image/*" onChange={(e) => handleDocumentUpload('roadworthiness_image', e)} style={{ display: 'none' }} />
-                  </label>
-                </div>
-              </div>
-            </div>
+            ))}
 
             <button style={styles.submitDocsBtn} onClick={handleSubmitDocuments}>
               Submit All Documents for Verification
@@ -626,7 +595,7 @@ const styles = {
   successMsg: { padding: '12px', borderRadius: '8px', marginBottom: '16px', textAlign: 'center', fontWeight: 'bold' },
   uberCard: { borderRadius: '20px', padding: '24px', marginBottom: '24px', transition: 'all 0.3s' },
   uberHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' },
-  uberTitle: { fontSize: '22px', fontWeight: 'bold', margin: '0 0 4px 0', transition: 'color 0.3s' },
+  uberTitle: { fontSize: '22px', fontWeight: 'bold', margin: '0 0 4px 0' },
   uberSubtitle: { fontSize: '13px', color: '#888', margin: 0 },
   uberToggle: { padding: '16px 32px', color: 'white', border: 'none', borderRadius: '50px', cursor: 'pointer', fontSize: '16px', fontWeight: 'bold', letterSpacing: '1px', boxShadow: '0 4px 15px rgba(0,0,0,0.2)', transition: 'all 0.3s', minWidth: '160px' },
   mapWrapper: { borderRadius: '16px', overflow: 'hidden', position: 'relative', marginBottom: '16px', transition: 'filter 0.5s' },

@@ -1,8 +1,35 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'react-leaflet/node_modules/leaflet';
 
 const API = 'https://rideshare-backend-production-32f5.up.railway.app';
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
+
+function LocationMarker({ isOnline }) {
+  const [position, setPosition] = useState([5.6037, -0.1870]);
+  const map = useMap();
+
+  useEffect(() => {
+    navigator.geolocation.getCurrentPosition((pos) => {
+      const { latitude, longitude } = pos.coords;
+      setPosition([latitude, longitude]);
+      map.setView([latitude, longitude], 15);
+    }, () => {
+      map.setView([5.6037, -0.1870], 13);
+    });
+  }, []);
+
+  return isOnline ? <Marker position={position} /> : null;
+}
 
 function DriverDashboard() {
   const [activeTab, setActiveTab] = useState('home');
@@ -22,6 +49,7 @@ function DriverDashboard() {
   const [selectedChat, setSelectedChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
+  const [toggling, setToggling] = useState(false);
 
   const userId = localStorage.getItem('userId');
   const userName = localStorage.getItem('userName');
@@ -64,10 +92,18 @@ function DriverDashboard() {
   };
 
   const handleToggleOnline = async () => {
+    setToggling(true);
     const newStatus = !isOnline;
-    await axios.put(`${API}/users/${userId}/status`, { is_online: newStatus ? 1 : 0 });
-    setIsOnline(newStatus);
-    localStorage.setItem('isOnline', newStatus ? '1' : '0');
+    try {
+      await axios.put(`${API}/users/${userId}/status`, { is_online: newStatus ? 1 : 0 });
+      setIsOnline(newStatus);
+      localStorage.setItem('isOnline', newStatus ? '1' : '0');
+      setMessage(newStatus ? 'You are now Online! Riders can see you.' : 'You are now Offline.');
+      setTimeout(() => setMessage(''), 3000);
+    } catch (error) {
+      console.error('Error toggling status:', error);
+    }
+    setToggling(false);
   };
 
   const handleUpdateProfile = async () => {
@@ -81,10 +117,27 @@ function DriverDashboard() {
     if (!file) return;
     const reader = new FileReader();
     reader.onloadend = async () => {
-      await axios.put(`${API}/users/${userId}/picture`, { profile_picture: reader.result });
-      setProfile({ ...profile, profile_picture: reader.result });
-      setMessage('Profile picture updated!');
-      setTimeout(() => setMessage(''), 3000);
+      const img = new Image();
+      img.onload = async () => {
+        const canvas = document.createElement('canvas');
+        const maxSize = 400;
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > maxSize) { height *= maxSize / width; width = maxSize; }
+        } else {
+          if (height > maxSize) { width *= maxSize / height; height = maxSize; }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        const compressed = canvas.toDataURL('image/jpeg', 0.6);
+        await axios.put(`${API}/users/${userId}/picture`, { profile_picture: compressed });
+        setProfile({ ...profile, profile_picture: compressed });
+        setMessage('Profile picture updated!');
+        setTimeout(() => setMessage(''), 3000);
+      };
+      img.src = reader.result;
     };
     reader.readAsDataURL(file);
   };
@@ -94,9 +147,26 @@ function DriverDashboard() {
     if (!file) return;
     const reader = new FileReader();
     reader.onloadend = () => {
-      setDocuments(prev => ({ ...prev, [type]: reader.result }));
-      setMessage(`${type.replace(/_/g, ' ')} uploaded! Click Submit to save.`);
-      setTimeout(() => setMessage(''), 3000);
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxSize = 800;
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > maxSize) { height *= maxSize / width; width = maxSize; }
+        } else {
+          if (height > maxSize) { width *= maxSize / height; height = maxSize; }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        const compressed = canvas.toDataURL('image/jpeg', 0.6);
+        setDocuments(prev => ({ ...prev, [type]: compressed }));
+        setMessage(`Document uploaded! Click Submit to save.`);
+        setTimeout(() => setMessage(''), 3000);
+      };
+      img.src = reader.result;
     };
     reader.readAsDataURL(file);
   };
@@ -113,11 +183,11 @@ function DriverDashboard() {
         roadworthiness_image: documents.roadworthiness_image,
         face_photo: documents.face_photo,
       });
-      setMessage('Documents submitted for verification! Admin will review soon.');
+      setMessage('Documents submitted for verification!');
       setTimeout(() => setMessage(''), 5000);
       fetchAll();
     } catch (error) {
-      setMessage('Error submitting documents. Please try again.');
+      setMessage('Error submitting. Try uploading smaller images.');
     }
   };
 
@@ -131,7 +201,7 @@ function DriverDashboard() {
   const handleComplaint = async () => {
     await axios.post(`${API}/complaints`, { user_id: userId, subject: complaint.subject, message: complaint.message });
     setComplaint({ subject: '', message: '' });
-    setMessage('Complaint submitted! Admin will respond soon.');
+    setMessage('Complaint submitted!');
     setTimeout(() => setMessage(''), 3000);
   };
 
@@ -173,12 +243,7 @@ function DriverDashboard() {
             <div style={styles.avatarPlaceholder}>{userName?.charAt(0)}</div>
           )}
           <p style={styles.sidebarName}>{userName}</p>
-          <div style={{...styles.statusBadge, backgroundColor: isOnline ? '#34a853' : '#888'}}>
-            {isOnline ? '🟢 Online' : '⚫ Offline'}
-          </div>
-          <button style={{...styles.toggleBtn, backgroundColor: isOnline ? '#ea4335' : '#34a853'}} onClick={handleToggleOnline}>
-            {isOnline ? 'Go Offline' : 'Go Online'}
-          </button>
+          <p style={styles.sidebarRole}>🚗 Driver</p>
         </div>
         {tabs.map(tab => (
           <button key={tab.id} style={{...styles.tabBtn, ...(activeTab === tab.id ? styles.tabActive : {})}} onClick={() => setActiveTab(tab.id)}>
@@ -192,19 +257,82 @@ function DriverDashboard() {
       </div>
 
       <div style={styles.main}>
-        {message && <div style={styles.successMsg}>{message}</div>}
+        {message && <div style={{...styles.successMsg, backgroundColor: message.includes('Online') ? '#e6f4ea' : message.includes('Offline') ? '#fce8e6' : '#e6f4ea', color: message.includes('Online') ? '#34a853' : message.includes('Offline') ? '#ea4335' : '#34a853'}}>{message}</div>}
 
         {activeTab === 'home' && (
           <div>
-            <h2 style={styles.pageTitle}>Welcome, {userName}! 👋</h2>
+            {/* Uber-style Online/Offline Section */}
+            <div style={{...styles.uberCard, backgroundColor: isOnline ? '#f0fff4' : '#f8f9fa', border: `2px solid ${isOnline ? '#34a853' : '#ddd'}`}}>
+              <div style={styles.uberHeader}>
+                <div>
+                  <h2 style={{...styles.uberTitle, color: isOnline ? '#34a853' : '#888'}}>
+                    {isOnline ? '🟢 You are Online' : '⚫ You are Offline'}
+                  </h2>
+                  <p style={styles.uberSubtitle}>
+                    {isOnline ? 'Riders can see and book your rides' : 'Go online to start receiving ride requests'}
+                  </p>
+                </div>
+                <button
+                  style={{
+                    ...styles.uberToggle,
+                    backgroundColor: isOnline ? '#ea4335' : '#34a853',
+                    transform: toggling ? 'scale(0.95)' : 'scale(1)',
+                  }}
+                  onClick={handleToggleOnline}
+                  disabled={toggling}
+                >
+                  {toggling ? '...' : isOnline ? 'GO OFFLINE' : 'GO ONLINE'}
+                </button>
+              </div>
+
+              {/* Map */}
+              <div style={{...styles.mapWrapper, filter: isOnline ? 'none' : 'grayscale(100%) opacity(0.5)'}}>
+                <MapContainer
+                  center={[5.6037, -0.1870]}
+                  zoom={13}
+                  style={styles.map}
+                  zoomControl={false}
+                >
+                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                  <LocationMarker isOnline={isOnline} />
+                </MapContainer>
+                {!isOnline && (
+                  <div style={styles.mapOverlay}>
+                    <p style={styles.mapOverlayText}>Go Online to activate your location</p>
+                    <button style={styles.mapOverlayBtn} onClick={handleToggleOnline}>
+                      GO ONLINE
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {isOnline && (
+                <div style={styles.onlineStats}>
+                  <div style={styles.onlineStat}>
+                    <p style={styles.onlineStatNum}>{notifications.length}</p>
+                    <p style={styles.onlineStatLbl}>New Bookings</p>
+                  </div>
+                  <div style={styles.onlineStat}>
+                    <p style={styles.onlineStatNum}>{myRides.filter(r => r.status === 'active').length}</p>
+                    <p style={styles.onlineStatLbl}>Active Rides</p>
+                  </div>
+                  <div style={styles.onlineStat}>
+                    <p style={styles.onlineStatNum}>GH₵ {earnings.totalNet?.toFixed(2) || '0.00'}</p>
+                    <p style={styles.onlineStatLbl}>Total Earned</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div style={styles.statsGrid}>
               <div style={styles.statCard}><p style={styles.statNum}>{myRides.length}</p><p style={styles.statLbl}>Total Rides</p></div>
               <div style={styles.statCard}><p style={styles.statNum}>GH₵ {earnings.totalNet?.toFixed(2) || '0.00'}</p><p style={styles.statLbl}>Net Earned</p></div>
               <div style={styles.statCard}><p style={styles.statNum}>{ratings.avgRating || '0'} ⭐</p><p style={styles.statLbl}>Rating</p></div>
               <div style={styles.statCard}><p style={styles.statNum}>{earnings.totalPassengers || 0}</p><p style={styles.statLbl}>Passengers</p></div>
             </div>
-            <h3 style={styles.sectionTitle}>Recent Notifications</h3>
-            {notifications.length === 0 ? <p style={styles.empty}>No notifications yet.</p> : (
+
+            <h3 style={styles.sectionTitle}>Recent Bookings</h3>
+            {notifications.length === 0 ? <p style={styles.empty}>No bookings yet.</p> : (
               notifications.slice(0, 5).map(n => (
                 <div key={n.id} style={styles.notifCard}>
                   <p style={styles.notifText}>👤 <strong>{n.passenger_name}</strong> booked your ride</p>
@@ -306,7 +434,6 @@ function DriverDashboard() {
         {activeTab === 'documents' && (
           <div>
             <h2 style={styles.pageTitle}>Documents & Verification 📄</h2>
-
             <div style={{...styles.verificationBanner, backgroundColor: documents.verified === 1 ? '#e6f4ea' : documents.face_photo ? '#fff8e1' : '#fce8e6'}}>
               <p style={{...styles.verificationText, color: documents.verified === 1 ? '#34a853' : documents.face_photo ? '#f9a825' : '#ea4335'}}>
                 {documents.verified === 1 ? '✅ Your account is fully verified!' : documents.face_photo ? '⏳ Documents submitted. Awaiting admin review...' : '❌ Please upload all required documents to get verified.'}
@@ -413,7 +540,7 @@ function DriverDashboard() {
             <h2 style={styles.pageTitle}>Referrals 👥</h2>
             <div style={styles.referralCard}>
               <p style={styles.referralLabel}>Your Referral Code</p>
-              <p style={styles.referralCode}>{localStorage.getItem('referralCode') || profile.referral_code}</p>
+              <p style={styles.referralCode}>{profile.referral_code}</p>
               <p style={styles.referralNote}>Share this code with friends. You earn GH₵ 5 for each person who joins!</p>
             </div>
             <h3 style={styles.sectionTitle}>People You Referred ({referrals.length})</h3>
@@ -431,7 +558,6 @@ function DriverDashboard() {
         {activeTab === 'help' && (
           <div>
             <h2 style={styles.pageTitle}>Help Center 🆘</h2>
-            <p style={styles.helpNote}>Having an issue? Submit a complaint and our admin team will respond.</p>
             <div style={styles.helpCard}>
               <input style={styles.input} type="text" placeholder="Subject" value={complaint.subject} onChange={(e) => setComplaint({ ...complaint, subject: e.target.value })} />
               <textarea style={styles.textarea} placeholder="Describe your issue..." value={complaint.message} onChange={(e) => setComplaint({ ...complaint, message: e.target.value })} rows={5} />
@@ -486,29 +612,42 @@ function DriverDashboard() {
 
 const styles = {
   container: { display: 'flex', minHeight: '100vh', backgroundColor: '#f8f9fa' },
-  sidebar: { width: '220px', backgroundColor: '#1a73e8', display: 'flex', flexDirection: 'column', padding: '16px', gap: '4px', flexShrink: 0 },
-  sidebarHeader: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginBottom: '16px', paddingBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.2)' },
-  avatar: { width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: '2px solid white' },
-  avatarPlaceholder: { width: '64px', height: '64px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', fontWeight: 'bold', color: 'white' },
+  sidebar: { width: '220px', backgroundColor: '#1a1a2e', display: 'flex', flexDirection: 'column', padding: '16px', gap: '4px', flexShrink: 0 },
+  sidebarHeader: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginBottom: '16px', paddingBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)' },
+  avatar: { width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #34a853' },
+  avatarPlaceholder: { width: '64px', height: '64px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', fontWeight: 'bold', color: 'white' },
   sidebarName: { color: 'white', fontWeight: 'bold', fontSize: '14px', margin: 0, textAlign: 'center' },
-  statusBadge: { padding: '4px 12px', borderRadius: '20px', color: 'white', fontSize: '12px', fontWeight: 'bold' },
-  toggleBtn: { padding: '8px 16px', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', width: '100%' },
-  tabBtn: { padding: '10px 12px', backgroundColor: 'transparent', color: 'rgba(255,255,255,0.8)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', textAlign: 'left', position: 'relative' },
-  tabActive: { backgroundColor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 'bold' },
+  sidebarRole: { color: 'rgba(255,255,255,0.6)', fontSize: '12px', margin: 0 },
+  tabBtn: { padding: '10px 12px', backgroundColor: 'transparent', color: 'rgba(255,255,255,0.7)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', textAlign: 'left', position: 'relative' },
+  tabActive: { backgroundColor: 'rgba(255,255,255,0.1)', color: 'white', fontWeight: 'bold' },
   notifBadge: { position: 'absolute', right: '8px', top: '8px', backgroundColor: '#ea4335', color: 'white', borderRadius: '50%', width: '16px', height: '16px', fontSize: '10px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' },
-  logoutBtn: { marginTop: 'auto', padding: '10px', backgroundColor: 'rgba(255,0,0,0.3)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' },
-  main: { flex: 1, padding: '32px', overflowY: 'auto' },
-  successMsg: { backgroundColor: '#e6f4ea', color: '#34a853', padding: '12px', borderRadius: '8px', marginBottom: '16px', textAlign: 'center' },
-  pageTitle: { color: '#1a73e8', fontSize: '24px', marginBottom: '24px' },
+  logoutBtn: { marginTop: 'auto', padding: '10px', backgroundColor: 'rgba(255,0,0,0.2)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' },
+  main: { flex: 1, padding: '24px', overflowY: 'auto' },
+  successMsg: { padding: '12px', borderRadius: '8px', marginBottom: '16px', textAlign: 'center', fontWeight: 'bold' },
+  uberCard: { borderRadius: '20px', padding: '24px', marginBottom: '24px', transition: 'all 0.3s' },
+  uberHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' },
+  uberTitle: { fontSize: '22px', fontWeight: 'bold', margin: '0 0 4px 0', transition: 'color 0.3s' },
+  uberSubtitle: { fontSize: '13px', color: '#888', margin: 0 },
+  uberToggle: { padding: '16px 32px', color: 'white', border: 'none', borderRadius: '50px', cursor: 'pointer', fontSize: '16px', fontWeight: 'bold', letterSpacing: '1px', boxShadow: '0 4px 15px rgba(0,0,0,0.2)', transition: 'all 0.3s', minWidth: '160px' },
+  mapWrapper: { borderRadius: '16px', overflow: 'hidden', position: 'relative', marginBottom: '16px', transition: 'filter 0.5s' },
+  map: { height: '300px', width: '100%' },
+  mapOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' },
+  mapOverlayText: { color: 'white', fontSize: '16px', fontWeight: 'bold', margin: 0 },
+  mapOverlayBtn: { padding: '14px 40px', backgroundColor: '#34a853', color: 'white', border: 'none', borderRadius: '50px', cursor: 'pointer', fontSize: '18px', fontWeight: 'bold', letterSpacing: '1px' },
+  onlineStats: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' },
+  onlineStat: { backgroundColor: 'white', padding: '16px', borderRadius: '12px', textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
+  onlineStatNum: { fontSize: '20px', fontWeight: 'bold', color: '#34a853', margin: '0 0 4px 0' },
+  onlineStatLbl: { fontSize: '12px', color: '#888', margin: 0 },
+  pageTitle: { color: '#1a1a2e', fontSize: '24px', marginBottom: '24px' },
   statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' },
   statCard: { backgroundColor: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', textAlign: 'center' },
-  statNum: { fontSize: '24px', fontWeight: 'bold', color: '#1a73e8', margin: '0 0 4px 0' },
+  statNum: { fontSize: '20px', fontWeight: 'bold', color: '#1a1a2e', margin: '0 0 4px 0' },
   statLbl: { fontSize: '12px', color: '#888', margin: 0 },
   sectionTitle: { color: '#333', fontSize: '18px', marginBottom: '12px', marginTop: '24px' },
   notifCard: { backgroundColor: 'white', padding: '16px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', marginBottom: '8px' },
   notifText: { margin: '0 0 4px 0', fontSize: '14px', color: '#333' },
   notifRoute: { margin: 0, fontSize: '12px', color: '#888' },
-  postRideBtn: { display: 'inline-block', padding: '12px 24px', backgroundColor: '#34a853', color: 'white', textDecoration: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '14px' },
+  postRideBtn: { display: 'inline-block', padding: '12px 24px', backgroundColor: '#34a853', color: 'white', textDecoration: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '14px', marginTop: '16px' },
   rideCard: { backgroundColor: 'white', padding: '16px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   rideRoute: { fontSize: '15px', fontWeight: 'bold', color: '#333', margin: '0 0 4px 0' },
   rideDetail: { fontSize: '13px', color: '#666', margin: '0 0 2px 0' },
@@ -516,14 +655,14 @@ const styles = {
   badge: { padding: '4px 12px', borderRadius: '20px', color: 'white', fontSize: '12px', fontWeight: 'bold' },
   cancelBtn: { padding: '6px 12px', backgroundColor: '#ea4335', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' },
   earningsHeader: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' },
-  earningsStat: { backgroundColor: '#1a73e8', padding: '20px', borderRadius: '12px', textAlign: 'center', color: 'white' },
-  earningsBig: { fontSize: '28px', fontWeight: 'bold', margin: '0 0 4px 0' },
-  earningsLbl: { fontSize: '12px', opacity: 0.9, margin: 0 },
+  earningsStat: { backgroundColor: '#1a1a2e', padding: '20px', borderRadius: '12px', textAlign: 'center', color: 'white' },
+  earningsBig: { fontSize: '24px', fontWeight: 'bold', margin: '0 0 4px 0' },
+  earningsLbl: { fontSize: '12px', opacity: 0.8, margin: 0 },
   earnAmt: { fontSize: '20px', fontWeight: 'bold', color: '#34a853', margin: 0 },
   earnLbl: { fontSize: '12px', color: '#888', margin: 0 },
   chatContainer: { display: 'flex', height: 'calc(100vh - 100px)', gap: '16px' },
   chatSidebar: { width: '240px', backgroundColor: 'white', borderRadius: '12px', padding: '16px', overflowY: 'auto' },
-  chatTitle: { color: '#1a73e8', fontSize: '16px', margin: '0 0 12px 0' },
+  chatTitle: { color: '#1a1a2e', fontSize: '16px', margin: '0 0 12px 0' },
   convItem: { padding: '12px', borderRadius: '8px', cursor: 'pointer', marginBottom: '4px', border: '1px solid #eee' },
   convName: { margin: '0 0 4px 0', fontWeight: 'bold', fontSize: '14px', color: '#333' },
   convMsg: { margin: 0, fontSize: '12px', color: '#888', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
@@ -539,30 +678,29 @@ const styles = {
   verificationText: { margin: 0, fontWeight: 'bold', fontSize: '15px' },
   rejectionReason: { margin: '8px 0 0 0', color: '#ea4335', fontSize: '13px' },
   docSection: { backgroundColor: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', marginBottom: '16px' },
-  docSectionTitle: { color: '#1a73e8', fontSize: '16px', margin: '0 0 4px 0' },
+  docSectionTitle: { color: '#1a1a2e', fontSize: '16px', margin: '0 0 4px 0', fontWeight: 'bold' },
   docHint: { color: '#888', fontSize: '13px', margin: '0 0 16px 0' },
   docRow: { display: 'flex', gap: '16px', flexWrap: 'wrap' },
   docBox: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', flex: 1, minWidth: '200px' },
   docPreview: { width: '100%', maxWidth: '250px', height: '160px', objectFit: 'cover', borderRadius: '8px', border: '2px solid #34a853' },
   docPlaceholder: { width: '100%', maxWidth: '250px', height: '160px', backgroundColor: '#f8f9fa', borderRadius: '8px', border: '2px dashed #ddd', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888', fontSize: '14px' },
   docLabel: { fontWeight: 'bold', color: '#333', margin: '0 0 4px 0', fontSize: '14px' },
-  submitDocsBtn: { width: '100%', padding: '14px', backgroundColor: '#1a73e8', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', marginTop: '8px' },
-  referralCard: { backgroundColor: '#1a73e8', padding: '24px', borderRadius: '12px', textAlign: 'center', color: 'white', marginBottom: '24px' },
-  referralLabel: { fontSize: '14px', opacity: 0.9, margin: '0 0 8px 0' },
+  submitDocsBtn: { width: '100%', padding: '14px', backgroundColor: '#1a1a2e', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', marginTop: '8px' },
+  referralCard: { backgroundColor: '#1a1a2e', padding: '24px', borderRadius: '12px', textAlign: 'center', color: 'white', marginBottom: '24px' },
+  referralLabel: { fontSize: '14px', opacity: 0.8, margin: '0 0 8px 0' },
   referralCode: { fontSize: '32px', fontWeight: 'bold', margin: '0 0 8px 0', letterSpacing: '4px' },
-  referralNote: { fontSize: '13px', opacity: 0.85, margin: 0 },
-  helpNote: { color: '#888', fontSize: '14px', marginBottom: '16px' },
+  referralNote: { fontSize: '13px', opacity: 0.75, margin: 0 },
   helpCard: { backgroundColor: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' },
   input: { padding: '12px 16px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', outline: 'none' },
   textarea: { padding: '12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', resize: 'vertical', outline: 'none' },
-  button: { padding: '12px', backgroundColor: '#1a73e8', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px' },
+  button: { padding: '12px', backgroundColor: '#1a1a2e', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px' },
   tipCard: { backgroundColor: 'white', padding: '12px 16px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', marginBottom: '8px' },
   tipText: { margin: 0, fontSize: '14px', color: '#333' },
   settingsCard: { backgroundColor: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' },
   avatarSection: { display: 'flex', alignItems: 'center', gap: '16px' },
   bigAvatar: { width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover' },
-  bigAvatarPlaceholder: { width: '80px', height: '80px', borderRadius: '50%', backgroundColor: '#1a73e8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', fontWeight: 'bold', color: 'white' },
-  uploadBtn: { padding: '8px 16px', backgroundColor: '#1a73e8', color: 'white', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' },
+  bigAvatarPlaceholder: { width: '80px', height: '80px', borderRadius: '50%', backgroundColor: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', fontWeight: 'bold', color: 'white' },
+  uploadBtn: { padding: '8px 16px', backgroundColor: '#1a1a2e', color: 'white', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' },
   infoRow: { margin: '0 0 8px 0', fontSize: '14px', color: '#555' },
   empty: { color: '#888', textAlign: 'center', padding: '20px', backgroundColor: 'white', borderRadius: '12px' },
 };

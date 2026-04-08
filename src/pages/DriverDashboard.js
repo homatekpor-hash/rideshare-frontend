@@ -14,75 +14,58 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// Sound effects using Web Audio API
 const playSound = (type) => {
-  const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  const oscillator = ctx.createOscillator();
-  const gainNode = ctx.createGain();
-  oscillator.connect(gainNode);
-  gainNode.connect(ctx.destination);
-
-  if (type === 'online') {
-    oscillator.frequency.setValueAtTime(523, ctx.currentTime);
-    oscillator.frequency.setValueAtTime(659, ctx.currentTime + 0.1);
-    oscillator.frequency.setValueAtTime(784, ctx.currentTime + 0.2);
-    gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
-    oscillator.start(ctx.currentTime);
-    oscillator.stop(ctx.currentTime + 0.5);
-  } else if (type === 'offline') {
-    oscillator.frequency.setValueAtTime(784, ctx.currentTime);
-    oscillator.frequency.setValueAtTime(523, ctx.currentTime + 0.2);
-    gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
-    oscillator.start(ctx.currentTime);
-    oscillator.stop(ctx.currentTime + 0.5);
-  } else if (type === 'request') {
-    const playBeep = (time) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.setValueAtTime(880, time);
-      gain.gain.setValueAtTime(0.4, time);
-      gain.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
-      osc.start(time);
-      osc.stop(time + 0.15);
-    };
-    playBeep(ctx.currentTime);
-    playBeep(ctx.currentTime + 0.2);
-    playBeep(ctx.currentTime + 0.4);
-  }
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    if (type === 'online') {
+      osc.frequency.setValueAtTime(523, ctx.currentTime);
+      osc.frequency.setValueAtTime(659, ctx.currentTime + 0.1);
+      osc.frequency.setValueAtTime(784, ctx.currentTime + 0.2);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+      osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.5);
+    } else if (type === 'offline') {
+      osc.frequency.setValueAtTime(784, ctx.currentTime);
+      osc.frequency.setValueAtTime(523, ctx.currentTime + 0.2);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+      osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.5);
+    } else if (type === 'request') {
+      [0, 0.2, 0.4].forEach(t => {
+        const o = ctx.createOscillator(); const g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.frequency.setValueAtTime(880, ctx.currentTime + t);
+        g.gain.setValueAtTime(0.4, ctx.currentTime + t);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.15);
+        o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.15);
+      });
+    }
+  } catch (e) {}
 };
 
-// Voice navigation
 const speak = (text) => {
   if ('speechSynthesis' in window) {
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.9;
-    utterance.pitch = 1;
-    utterance.volume = 1;
-    window.speechSynthesis.speak(utterance);
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 0.9; u.pitch = 1; u.volume = 1;
+    window.speechSynthesis.speak(u);
   }
 };
 
-function NavigationMap({ driverPos, targetLat, targetLng, label, color }) {
+function NavigationMap({ driverPos, targetLat, targetLng, color }) {
   const map = useMap();
   useEffect(() => {
     if (driverPos && targetLat && targetLng) {
-      const bounds = [[driverPos[0], driverPos[1]], [targetLat, targetLng]];
-      map.fitBounds(bounds, { padding: [40, 40] });
+      map.fitBounds([[driverPos[0], driverPos[1]], [targetLat, targetLng]], { padding: [40, 40] });
     }
   }, [driverPos, targetLat, targetLng]);
-
   const targetIcon = L.divIcon({
     html: `<div style="background:${color};width:20px;height:20px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)"></div>`,
-    className: '',
-    iconSize: [20, 20],
-    iconAnchor: [10, 10],
+    className: '', iconSize: [20, 20], iconAnchor: [10, 10],
   });
-
   return (
     <>
       {driverPos && <Marker position={driverPos} />}
@@ -110,12 +93,16 @@ function DriverDashboard() {
   const [documents, setDocuments] = useState({});
   const [conversations, setConversations] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
-  const [messages, setMessages] = useState([]);
+  const [chatMessages, setChatMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [toggling, setToggling] = useState(false);
   const [requests, setRequests] = useState([]);
   const [activeTrip, setActiveTrip] = useState(null);
   const [driverPos, setDriverPos] = useState(null);
+  const [completedTrips, setCompletedTrips] = useState([]);
+  const [selectedPassenger, setSelectedPassenger] = useState(null);
+  const [passengerRating, setPassengerRating] = useState(5);
+  const [passengerComment, setPassengerComment] = useState('');
   const prevRequestCount = useRef(0);
 
   const userId = localStorage.getItem('userId');
@@ -123,35 +110,20 @@ function DriverDashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!userId || localStorage.getItem('userRole') !== 'driver') {
-      navigate('/login');
-      return;
-    }
-    const online = localStorage.getItem('isOnline') === '1';
-    setIsOnline(online);
+    if (!userId || localStorage.getItem('userRole') !== 'driver') { navigate('/login'); return; }
+    setIsOnline(localStorage.getItem('isOnline') === '1');
     fetchAll();
     fetchRequests();
     fetchActiveTrip();
-
-    // Watch driver position
-    const watchId = navigator.geolocation.watchPosition((pos) => {
-      setDriverPos([pos.coords.latitude, pos.coords.longitude]);
-    }, () => {
-      setDriverPos([5.6037, -0.1870]);
-    }, { enableHighAccuracy: true });
-
-    const interval = setInterval(() => {
-      fetchRequests();
-      fetchActiveTrip();
-    }, 5000);
-
-    return () => {
-      clearInterval(interval);
-      navigator.geolocation.clearWatch(watchId);
-    };
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => setDriverPos([pos.coords.latitude, pos.coords.longitude]),
+      () => setDriverPos([5.6037, -0.1870]),
+      { enableHighAccuracy: true }
+    );
+    const interval = setInterval(() => { fetchRequests(); fetchActiveTrip(); }, 5000);
+    return () => { clearInterval(interval); navigator.geolocation.clearWatch(watchId); };
   }, []);
 
-  // Play sound when new requests arrive
   useEffect(() => {
     if (requests.length > prevRequestCount.current && requests.length > 0) {
       playSound('request');
@@ -182,29 +154,35 @@ function DriverDashboard() {
       setReferrals(referralsRes.data.referrals);
       setDocuments(docsRes.data.documents);
       setConversations(convsRes.data.conversations);
-    } catch (error) { console.error('Error:', error); }
+    } catch (e) { console.error(e); }
   };
 
   const fetchRequests = async () => {
     try {
       const res = await axios.get(`${API}/driver/requests/${userId}`);
       setRequests(res.data.requests);
-    } catch (error) { console.error('Error fetching requests:', error); }
+    } catch (e) {}
   };
 
   const fetchActiveTrip = async () => {
     try {
       const res = await axios.get(`${API}/driver/active-trip/${userId}`);
       setActiveTrip(res.data.trip);
-    } catch (error) { console.error('Error fetching active trip:', error); }
+    } catch (e) {}
+  };
+
+  const fetchCompletedTrips = async () => {
+    try {
+      const res = await axios.get(`${API}/driver/completed-trips/${userId}`);
+      setCompletedTrips(res.data.trips);
+    } catch (e) {}
   };
 
   const handleAccept = async (bookingId, req) => {
     await axios.put(`${API}/bookings/${bookingId}/accept`);
     setMessage('✅ Booking accepted!');
-    speak(`Booking accepted. Navigating to pickup point. Pick up ${req.passenger_name} at ${req.from_location}.`);
-    fetchRequests();
-    fetchActiveTrip();
+    speak(`Booking accepted. Navigating to pick up ${req.passenger_name} at ${req.from_location}.`);
+    fetchRequests(); fetchActiveTrip();
     setTimeout(() => setMessage(''), 3000);
   };
 
@@ -235,6 +213,23 @@ function DriverDashboard() {
     setTimeout(() => setMessage(''), 5000);
   };
 
+  const handleSubmitPassengerRating = async () => {
+    if (!selectedPassenger) return;
+    await axios.post(`${API}/ratings`, {
+      ride_id: selectedPassenger.id,
+      rater_id: userId,
+      rated_id: selectedPassenger.passenger_id,
+      rating: passengerRating,
+      comment: passengerComment,
+      rater_role: 'driver',
+    });
+    setMessage('✅ Passenger rated!');
+    setSelectedPassenger(null);
+    setPassengerRating(5);
+    setPassengerComment('');
+    setTimeout(() => setMessage(''), 3000);
+  };
+
   const handleToggleOnline = async () => {
     setToggling(true);
     const newStatus = !isOnline;
@@ -243,10 +238,10 @@ function DriverDashboard() {
       setIsOnline(newStatus);
       localStorage.setItem('isOnline', newStatus ? '1' : '0');
       playSound(newStatus ? 'online' : 'offline');
-      speak(newStatus ? 'You are now online. Ready to receive ride requests.' : 'You are now offline.');
+      speak(newStatus ? 'You are now online.' : 'You are now offline.');
       setMessage(newStatus ? '🟢 You are now Online!' : '⚫ You are now Offline.');
       setTimeout(() => setMessage(''), 3000);
-    } catch (error) { console.error('Error:', error); }
+    } catch (e) {}
     setToggling(false);
   };
 
@@ -257,24 +252,20 @@ function DriverDashboard() {
   };
 
   const handlePictureUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+    const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
     reader.onloadend = async () => {
       const img = new Image();
       img.onload = async () => {
         const canvas = document.createElement('canvas');
-        const maxSize = 400;
-        let width = img.width, height = img.height;
-        if (width > height) { if (width > maxSize) { height *= maxSize / width; width = maxSize; } }
-        else { if (height > maxSize) { width *= maxSize / height; height = maxSize; } }
-        canvas.width = width; canvas.height = height;
-        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        const maxSize = 400; let w = img.width, h = img.height;
+        if (w > h) { if (w > maxSize) { h *= maxSize/w; w = maxSize; } } else { if (h > maxSize) { w *= maxSize/h; h = maxSize; } }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
         const compressed = canvas.toDataURL('image/jpeg', 0.6);
         await axios.put(`${API}/users/${userId}/picture`, { profile_picture: compressed });
         setProfile({ ...profile, profile_picture: compressed });
-        setMessage('✅ Photo updated!');
-        setTimeout(() => setMessage(''), 3000);
+        setMessage('✅ Photo updated!'); setTimeout(() => setMessage(''), 3000);
       };
       img.src = reader.result;
     };
@@ -282,23 +273,19 @@ function DriverDashboard() {
   };
 
   const handleDocumentUpload = (type, e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+    const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
     reader.onloadend = () => {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const maxSize = 800;
-        let width = img.width, height = img.height;
-        if (width > height) { if (width > maxSize) { height *= maxSize / width; width = maxSize; } }
-        else { if (height > maxSize) { width *= maxSize / height; height = maxSize; } }
-        canvas.width = width; canvas.height = height;
-        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        const maxSize = 800; let w = img.width, h = img.height;
+        if (w > h) { if (w > maxSize) { h *= maxSize/w; w = maxSize; } } else { if (h > maxSize) { w *= maxSize/h; h = maxSize; } }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
         const compressed = canvas.toDataURL('image/jpeg', 0.6);
         setDocuments(prev => ({ ...prev, [type]: compressed }));
-        setMessage('✅ Document uploaded! Click Submit to save.');
-        setTimeout(() => setMessage(''), 3000);
+        setMessage('✅ Uploaded! Click Submit to save.'); setTimeout(() => setMessage(''), 3000);
       };
       img.src = reader.result;
     };
@@ -307,46 +294,38 @@ function DriverDashboard() {
 
   const handleSubmitDocuments = async () => {
     try {
-      await axios.post(`${API}/driver/documents`, {
-        driver_id: userId,
-        license_front: documents.license_front,
-        license_back: documents.license_back,
-        national_id_front: documents.national_id_front,
-        national_id_back: documents.national_id_back,
-        insurance_image: documents.insurance_image,
-        roadworthiness_image: documents.roadworthiness_image,
-        face_photo: documents.face_photo,
-      });
-      setMessage('✅ Documents submitted for verification!');
-      setTimeout(() => setMessage(''), 5000);
-      fetchAll();
-    } catch (error) { setMessage('❌ Error submitting. Try smaller images.'); }
+      await axios.post(`${API}/driver/documents`, { driver_id: userId, ...documents });
+      setMessage('✅ Documents submitted!'); setTimeout(() => setMessage(''), 5000); fetchAll();
+    } catch (e) { setMessage('❌ Error. Try smaller images.'); }
   };
 
   const handleCancelRide = async (rideId) => {
     await axios.put(`${API}/rides/${rideId}/cancel`);
-    fetchAll();
-    setMessage('✅ Ride cancelled!');
-    setTimeout(() => setMessage(''), 3000);
+    fetchAll(); setMessage('✅ Ride cancelled!'); setTimeout(() => setMessage(''), 3000);
   };
 
   const handleComplaint = async () => {
     await axios.post(`${API}/complaints`, { user_id: userId, subject: complaint.subject, message: complaint.message });
     setComplaint({ subject: '', message: '' });
-    setMessage('✅ Complaint submitted!');
-    setTimeout(() => setMessage(''), 3000);
+    setMessage('✅ Complaint submitted!'); setTimeout(() => setMessage(''), 3000);
   };
 
-  const fetchMessages = async (otherUserId) => {
+  const fetchChatMessages = async (otherUserId) => {
     const res = await axios.get(`${API}/messages/${userId}/${otherUserId}`);
-    setMessages(res.data.messages);
+    setChatMessages(res.data.messages);
   };
 
   const sendMessage = async () => {
     if (!newMessage.trim() || !selectedChat) return;
-    await axios.post(`${API}/messages`, { sender_id: userId, receiver_id: selectedChat.other_user_id, message: newMessage });
-    setNewMessage('');
-    fetchMessages(selectedChat.other_user_id);
+    try {
+      await axios.post(`${API}/messages`, {
+        sender_id: parseInt(userId),
+        receiver_id: parseInt(selectedChat.other_user_id),
+        message: newMessage.trim()
+      });
+      setNewMessage('');
+      fetchChatMessages(selectedChat.other_user_id);
+    } catch (e) { setMessage('❌ Failed to send message.'); }
   };
 
   const handleLogout = () => { localStorage.clear(); navigate('/login'); };
@@ -361,6 +340,7 @@ function DriverDashboard() {
 
   const menuItems = [
     { id: 'documents', icon: '📄', label: 'Documents & Verification' },
+    { id: 'rate-passenger', icon: '⭐', label: 'Rate a Passenger' },
     { id: 'referrals', icon: '👥', label: 'Referrals' },
     { id: 'help', icon: '🆘', label: 'Help Center' },
     { id: 'settings', icon: '⚙️', label: 'Settings' },
@@ -370,80 +350,42 @@ function DriverDashboard() {
 
   return (
     <div style={styles.app}>
-      {/* Toast */}
       {message && <div style={styles.toast}>{message}</div>}
 
-      {/* Active Trip Navigation Screen */}
+      {/* Active Trip Navigation */}
       {activeTrip && activeTab === 'home' && (
         <div style={styles.tripScreen}>
-          {/* Map */}
           <div style={styles.tripMap}>
-            <MapContainer
-              center={driverPos || [5.6037, -0.1870]}
-              zoom={14}
-              style={{ height: '100%', width: '100%' }}
-              zoomControl={false}
-            >
+            <MapContainer center={driverPos || [5.6037, -0.1870]} zoom={14} style={{ height: '100%', width: '100%' }} zoomControl={false}>
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
               <NavigationMap
                 driverPos={driverPos}
                 targetLat={tripStatus === 'accepted' ? activeTrip.from_lat : activeTrip.to_lat}
                 targetLng={tripStatus === 'accepted' ? activeTrip.from_lng : activeTrip.to_lng}
-                label={tripStatus === 'accepted' ? 'Pickup' : 'Dropoff'}
                 color={tripStatus === 'accepted' ? '#34a853' : '#1a73e8'}
               />
             </MapContainer>
           </div>
-
-          {/* Trip Info Panel */}
           <div style={styles.tripPanel}>
-            <div style={styles.tripPanelHeader}>
-              <div style={styles.tripPassenger}>
-                {activeTrip.passenger_pic
-                  ? <img src={activeTrip.passenger_pic} alt="Passenger" style={styles.tripAvatar} />
-                  : <div style={styles.tripAvatarPlaceholder}>{activeTrip.passenger_name?.charAt(0)}</div>}
-                <div>
-                  <p style={styles.tripPassengerName}>{activeTrip.passenger_name}</p>
-                  {activeTrip.passenger_phone && (
-                    <a href={`tel:${activeTrip.passenger_phone}`} style={styles.tripPhone}>📞 {activeTrip.passenger_phone}</a>
-                  )}
-                </div>
-                <p style={styles.tripFare}>GH₵ {activeTrip.price}</p>
+            <div style={styles.tripPassengerRow}>
+              {activeTrip.passenger_pic
+                ? <img src={activeTrip.passenger_pic} alt="Passenger" style={styles.tripAvatar} />
+                : <div style={styles.tripAvatarPlaceholder}>{activeTrip.passenger_name?.charAt(0)}</div>}
+              <div style={{ flex: 1 }}>
+                <p style={styles.tripPassengerName}>{activeTrip.passenger_name}</p>
+                {activeTrip.passenger_phone && <a href={`tel:${activeTrip.passenger_phone}`} style={styles.tripPhone}>📞 {activeTrip.passenger_phone}</a>}
               </div>
+              <p style={styles.tripFare}>GH₵ {activeTrip.price}</p>
             </div>
-
-            <div style={styles.tripRoute}>
-              {tripStatus === 'accepted' ? (
-                <>
-                  <p style={styles.tripStatusLabel}>🟡 Heading to Pickup Point</p>
-                  <p style={styles.tripLocation}>📍 {activeTrip.from_location}</p>
-                </>
-              ) : (
-                <>
-                  <p style={styles.tripStatusLabel}>🔵 Trip in Progress</p>
-                  <p style={styles.tripLocation}>🏁 {activeTrip.to_location}</p>
-                </>
-              )}
+            <div style={styles.tripRouteBox}>
+              <p style={{...styles.tripStatusLabel, color: tripStatus === 'accepted' ? '#f9a825' : '#1a73e8'}}>
+                {tripStatus === 'accepted' ? '🟡 Heading to Pickup' : '🔵 Trip in Progress'}
+              </p>
+              <p style={styles.tripLocation}>{tripStatus === 'accepted' ? `📍 ${activeTrip.from_location}` : `🏁 ${activeTrip.to_location}`}</p>
             </div>
-
-            {tripStatus === 'accepted' && (
-              <button style={styles.startTripBtn} onClick={handleStartTrip}>
-                🚦 Arrived at Pickup — Start Trip
-              </button>
-            )}
-            {tripStatus === 'started' && (
-              <button style={styles.endTripBtn} onClick={handleEndTrip}>
-                🏁 End Trip & Get Paid
-              </button>
-            )}
-
-            <button style={styles.voiceBtn} onClick={() => {
-              if (tripStatus === 'accepted') {
-                speak(`Head to ${activeTrip.from_location} to pick up ${activeTrip.passenger_name}.`);
-              } else {
-                speak(`Navigate to ${activeTrip.to_location} to drop off the passenger.`);
-              }
-            }}>
+            {tripStatus === 'accepted' && <button style={styles.startTripBtn} onClick={handleStartTrip}>🚦 Arrived at Pickup — Start Trip</button>}
+            {tripStatus === 'started' && <button style={styles.endTripBtn} onClick={handleEndTrip}>🏁 End Trip & Get Paid</button>}
+            <button style={styles.voiceBtn} onClick={() => speak(tripStatus === 'accepted' ? `Head to ${activeTrip.from_location} to pick up ${activeTrip.passenger_name}.` : `Navigate to ${activeTrip.to_location}.`)}>
               🔊 Voice Instructions
             </button>
           </div>
@@ -458,15 +400,11 @@ function DriverDashboard() {
             <div key={req.id} style={styles.requestCard}>
               <div style={styles.requestHeader}>
                 <div style={styles.requestAvatar}>
-                  {req.passenger_pic
-                    ? <img src={req.passenger_pic} alt="Passenger" style={styles.requestAvatarImg} />
-                    : <span>{req.passenger_name?.charAt(0)}</span>}
+                  {req.passenger_pic ? <img src={req.passenger_pic} alt="" style={styles.requestAvatarImg} /> : <span>{req.passenger_name?.charAt(0)}</span>}
                 </div>
                 <div style={styles.requestInfo}>
                   <p style={styles.requestName}>{req.passenger_name}</p>
-                  {req.passenger_phone && (
-                    <a href={`tel:${req.passenger_phone}`} style={styles.requestPhone}>📞 {req.passenger_phone}</a>
-                  )}
+                  {req.passenger_phone && <a href={`tel:${req.passenger_phone}`} style={styles.requestPhone}>📞 {req.passenger_phone}</a>}
                 </div>
                 <p style={styles.requestPrice}>GH₵ {req.price}</p>
               </div>
@@ -501,46 +439,24 @@ function DriverDashboard() {
               </div>
             )}
           </div>
-
           <div style={styles.topBar}>
             <div style={styles.topLeft}>
-              {profile.profile_picture
-                ? <img src={profile.profile_picture} alt="Profile" style={styles.topAvatar} />
-                : <div style={styles.topAvatarPlaceholder}>{userName?.charAt(0)}</div>}
-              <div>
-                <p style={styles.topName}>{userName}</p>
-                <p style={styles.topRole}>🚗 Driver</p>
-              </div>
+              {profile.profile_picture ? <img src={profile.profile_picture} alt="" style={styles.topAvatar} /> : <div style={styles.topAvatarPlaceholder}>{userName?.charAt(0)}</div>}
+              <div><p style={styles.topName}>{userName}</p><p style={styles.topRole}>🚗 Driver</p></div>
             </div>
-            <div style={{...styles.statusPill, backgroundColor: isOnline ? '#34a853' : '#666'}}>
-              {isOnline ? '🟢 Online' : '⚫ Offline'}
-            </div>
+            <div style={{...styles.statusPill, backgroundColor: isOnline ? '#34a853' : '#666'}}>{isOnline ? '🟢 Online' : '⚫ Offline'}</div>
           </div>
-
           <div style={styles.bottomPanel}>
             {isOnline && (
               <div style={styles.liveStats}>
-                <div style={styles.liveStat}>
-                  <p style={styles.liveNum}>{requests.length}</p>
-                  <p style={styles.liveLbl}>Requests</p>
-                </div>
+                <div style={styles.liveStat}><p style={styles.liveNum}>{requests.length}</p><p style={styles.liveLbl}>Requests</p></div>
                 <div style={styles.liveDiv} />
-                <div style={styles.liveStat}>
-                  <p style={styles.liveNum}>{myRides.filter(r => r.status === 'active').length}</p>
-                  <p style={styles.liveLbl}>Active Rides</p>
-                </div>
+                <div style={styles.liveStat}><p style={styles.liveNum}>{myRides.filter(r => r.status === 'active').length}</p><p style={styles.liveLbl}>Active Rides</p></div>
                 <div style={styles.liveDiv} />
-                <div style={styles.liveStat}>
-                  <p style={styles.liveNum}>GH₵{earnings.totalNet?.toFixed(0) || '0'}</p>
-                  <p style={styles.liveLbl}>Earned</p>
-                </div>
+                <div style={styles.liveStat}><p style={styles.liveNum}>GH₵{earnings.totalNet?.toFixed(0) || '0'}</p><p style={styles.liveLbl}>Earned</p></div>
               </div>
             )}
-            <button
-              style={{...styles.goBtn, backgroundColor: isOnline ? '#ea4335' : '#1a73e8', transform: toggling ? 'scale(0.97)' : 'scale(1)'}}
-              onClick={handleToggleOnline}
-              disabled={toggling}
-            >
+            <button style={{...styles.goBtn, backgroundColor: isOnline ? '#ea4335' : '#1a73e8'}} onClick={handleToggleOnline} disabled={toggling}>
               {toggling ? '...' : isOnline ? '⚫  GO OFFLINE' : '🟢  GO ONLINE'}
             </button>
             <Link to="/post-ride" style={styles.postRideLink}>+ Post a New Ride</Link>
@@ -551,24 +467,18 @@ function DriverDashboard() {
       {/* RIDES TAB */}
       {activeTab === 'rides' && (
         <div style={styles.screen}>
-          <div style={styles.screenHeader}>
-            <h2 style={styles.screenTitle}>My Rides 🚗</h2>
-            <Link to="/post-ride" style={styles.addBtn}>+ New</Link>
-          </div>
+          <div style={styles.screenHeader}><h2 style={styles.screenTitle}>My Rides 🚗</h2><Link to="/post-ride" style={styles.addBtn}>+ New</Link></div>
           <div style={styles.content}>
-            {myRides.length === 0 ? <p style={styles.empty}>No rides posted yet.</p> : (
-              myRides.map(ride => (
-                <div key={ride.id} style={styles.card}>
-                  <p style={styles.cardRoute}>📍 {ride.from_location} → {ride.to_location}</p>
-                  <p style={styles.cardDetail}>🕐 {ride.departure_time}</p>
-                  <p style={styles.cardDetail}>💺 {ride.seats_available} seats | 👥 {ride.booking_count} booked | GH₵ {ride.price}</p>
-                  <div style={styles.cardFooter}>
-                    <span style={{...styles.badge, backgroundColor: ride.status === 'active' ? '#34a853' : '#888'}}>{ride.status}</span>
-                    {ride.status === 'active' && <button style={styles.cancelBtn} onClick={() => handleCancelRide(ride.id)}>Cancel</button>}
-                  </div>
+            {myRides.length === 0 ? <p style={styles.empty}>No rides posted yet.</p> : myRides.map(ride => (
+              <div key={ride.id} style={styles.card}>
+                <p style={styles.cardRoute}>📍 {ride.from_location} → {ride.to_location}</p>
+                <p style={styles.cardDetail}>🕐 {ride.departure_time} | 💺 {ride.seats_available} seats | GH₵ {ride.price}</p>
+                <div style={styles.cardFooter}>
+                  <span style={{...styles.badge, backgroundColor: ride.status === 'active' ? '#34a853' : '#888'}}>{ride.status}</span>
+                  {ride.status === 'active' && <button style={styles.cancelBtn} onClick={() => handleCancelRide(ride.id)}>Cancel</button>}
                 </div>
-              ))
-            )}
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -583,20 +493,16 @@ function DriverDashboard() {
               <p style={styles.earningsLbl}>Total received (after 10% commission)</p>
             </div>
             <div style={styles.earningsRow}>
-              <div style={styles.earningMini}><p style={styles.earningMiniNum}>GH₵ {earnings.totalCommission?.toFixed(2) || '0.00'}</p><p style={styles.earningMiniLbl}>Commission paid</p></div>
+              <div style={styles.earningMini}><p style={styles.earningMiniNum}>GH₵ {earnings.totalCommission?.toFixed(2) || '0.00'}</p><p style={styles.earningMiniLbl}>Commission</p></div>
               <div style={styles.earningMini}><p style={styles.earningMiniNum}>{earnings.totalPassengers || 0}</p><p style={styles.earningMiniLbl}>Passengers</p></div>
             </div>
-            <h3 style={styles.sectionTitle}>Trip History</h3>
-            {!earnings.earnings || earnings.earnings.length === 0 ? <p style={styles.empty}>No earnings yet.</p> : (
-              earnings.earnings.map(e => (
-                <div key={e.id} style={styles.card}>
-                  <p style={styles.cardRoute}>📍 {e.from_location} → {e.to_location}</p>
-                  <p style={styles.cardDetail}>👥 {e.passengers} passenger(s) | GH₵ {e.price} per seat</p>
-                  <p style={styles.cardDetail}>Commission: GH₵ {e.commission?.toFixed(2)}</p>
-                  <p style={{...styles.cardDetail, color: '#34a853', fontWeight: 'bold'}}>Received: GH₵ {e.net_earned?.toFixed(2)}</p>
-                </div>
-              ))
-            )}
+            {earnings.earnings?.map(e => (
+              <div key={e.id} style={styles.card}>
+                <p style={styles.cardRoute}>📍 {e.from_location} → {e.to_location}</p>
+                <p style={styles.cardDetail}>👥 {e.passengers} passenger(s) | GH₵ {e.price}</p>
+                <p style={{...styles.cardDetail, color: '#34a853', fontWeight: 'bold'}}>Received: GH₵ {e.net_earned?.toFixed(2)}</p>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -607,27 +513,34 @@ function DriverDashboard() {
           <div style={styles.screenHeader}><h2 style={styles.screenTitle}>Messages 💬</h2></div>
           {!selectedChat ? (
             <div style={styles.content}>
-              {conversations.length === 0 ? <p style={styles.empty}>No conversations yet.</p> : (
-                conversations.map(conv => (
-                  <div key={conv.other_user_id} style={styles.convItem} onClick={() => { setSelectedChat(conv); fetchMessages(conv.other_user_id); }}>
-                    <div style={styles.convAvatar}>{conv.other_user_name?.charAt(0)}</div>
-                    <div>
-                      <p style={styles.convName}>{conv.other_user_name}</p>
-                      <p style={styles.convMsg}>{conv.last_message}</p>
-                    </div>
+              {conversations.length === 0 ? (
+                <div style={styles.emptyBox}>
+                  <p style={styles.emptyIcon}>💬</p>
+                  <p style={styles.emptyText}>No conversations yet</p>
+                  <p style={styles.emptyHint}>Messages from riders will appear here</p>
+                </div>
+              ) : conversations.map(conv => (
+                <div key={conv.other_user_id} style={styles.convItem} onClick={() => { setSelectedChat(conv); fetchChatMessages(conv.other_user_id); }}>
+                  <div style={styles.convAvatar}>{conv.other_user_name?.charAt(0)}</div>
+                  <div style={{ flex: 1 }}>
+                    <p style={styles.convName}>{conv.other_user_name}</p>
+                    <p style={styles.convMsg}>{conv.last_message}</p>
                   </div>
-                ))
-              )}
+                  <span style={styles.convArrow}>›</span>
+                </div>
+              ))}
             </div>
           ) : (
             <div style={styles.chatScreen}>
               <div style={styles.chatTopBar}>
                 <button style={styles.backBtn} onClick={() => setSelectedChat(null)}>←</button>
+                <div style={styles.chatAvatar}>{selectedChat.other_user_name?.charAt(0)}</div>
                 <p style={styles.chatName}>{selectedChat.other_user_name}</p>
               </div>
               <div style={styles.msgList}>
-                {messages.map(msg => (
-                  <div key={msg.id} style={{...styles.msgBubble, alignSelf: msg.sender_id == userId ? 'flex-end' : 'flex-start', backgroundColor: msg.sender_id == userId ? '#1a73e8' : '#f1f3f4', color: msg.sender_id == userId ? 'white' : '#333'}}>
+                {chatMessages.length === 0 && <p style={{textAlign:'center',color:'#aaa',padding:'20px',fontSize:'13px'}}>No messages yet. Say hello!</p>}
+                {chatMessages.map(msg => (
+                  <div key={msg.id} style={{...styles.msgBubble, alignSelf: String(msg.sender_id) === String(userId) ? 'flex-end' : 'flex-start', backgroundColor: String(msg.sender_id) === String(userId) ? '#1a73e8' : '#f1f3f4', color: String(msg.sender_id) === String(userId) ? 'white' : '#333'}}>
                     <p style={{ margin: 0, fontSize: '14px' }}>{msg.message}</p>
                   </div>
                 ))}
@@ -646,18 +559,13 @@ function DriverDashboard() {
         <div style={styles.screen}>
           <div style={styles.menuHeader}>
             <div style={styles.menuProfile}>
-              {profile.profile_picture
-                ? <img src={profile.profile_picture} alt="Profile" style={styles.menuAvatar} />
-                : <div style={styles.menuAvatarPlaceholder}>{userName?.charAt(0)}</div>}
-              <div>
-                <p style={styles.menuName}>{userName}</p>
-                <p style={styles.menuRole}>🚗 Driver | ⭐ {ratings.avgRating || '0'}</p>
-              </div>
+              {profile.profile_picture ? <img src={profile.profile_picture} alt="" style={styles.menuAvatar} /> : <div style={styles.menuAvatarPlaceholder}>{userName?.charAt(0)}</div>}
+              <div><p style={styles.menuName}>{userName}</p><p style={styles.menuRole}>🚗 Driver | ⭐ {ratings.avgRating || '0'}</p></div>
             </div>
           </div>
           <div style={styles.content}>
             {menuItems.map(item => (
-              <button key={item.id} style={styles.menuItem} onClick={() => setActiveTab(item.id)}>
+              <button key={item.id} style={styles.menuItem} onClick={() => { setActiveTab(item.id); if (item.id === 'rate-passenger') fetchCompletedTrips(); }}>
                 <span style={styles.menuIcon}>{item.icon}</span>
                 <span style={styles.menuLabel}>{item.label}</span>
                 <span style={styles.menuArrow}>›</span>
@@ -667,6 +575,47 @@ function DriverDashboard() {
               <span style={styles.menuIcon}>🚪</span>
               <span style={{...styles.menuLabel, color: '#ea4335'}}>Logout</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* RATE PASSENGER TAB */}
+      {activeTab === 'rate-passenger' && (
+        <div style={styles.screen}>
+          <div style={styles.screenHeader}>
+            <button style={styles.backBtn} onClick={() => setActiveTab('menu')}>←</button>
+            <h2 style={styles.screenTitle}>Rate a Passenger ⭐</h2>
+          </div>
+          <div style={styles.content}>
+            <p style={{fontSize:'13px',color:'#888',marginBottom:'16px'}}>Select a completed trip to rate the passenger</p>
+            {completedTrips.length === 0 ? (
+              <div style={styles.emptyBox}>
+                <p style={styles.emptyIcon}>⭐</p>
+                <p style={styles.emptyText}>No completed trips yet</p>
+              </div>
+            ) : completedTrips.map(trip => (
+              <div key={trip.id} style={{...styles.card, border: selectedPassenger?.id === trip.id ? '2px solid #34a853' : 'none', cursor: 'pointer'}} onClick={() => setSelectedPassenger(trip)}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  {trip.passenger_pic ? <img src={trip.passenger_pic} alt="" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#34a853', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold' }}>{trip.passenger_name?.charAt(0)}</div>}
+                  <div>
+                    <p style={styles.cardRoute}>👤 {trip.passenger_name}</p>
+                    <p style={styles.cardDetail}>📍 {trip.from_location} → {trip.to_location}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {selectedPassenger && (
+              <div style={styles.ratingBox}>
+                <p style={styles.ratingTitle}>Rate {selectedPassenger.passenger_name}</p>
+                <div style={styles.starsRow}>
+                  {[1,2,3,4,5].map(star => (
+                    <button key={star} style={{...styles.star, fontSize: star <= passengerRating ? '36px' : '28px', opacity: star <= passengerRating ? 1 : 0.3}} onClick={() => setPassengerRating(star)}>⭐</button>
+                  ))}
+                </div>
+                <textarea style={styles.ratingInput} placeholder="Leave feedback (optional)..." value={passengerComment} onChange={(e) => setPassengerComment(e.target.value)} rows={3} />
+                <button style={styles.submitBtn} onClick={handleSubmitPassengerRating}>Submit Rating</button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -683,48 +632,36 @@ function DriverDashboard() {
               <p style={{...styles.verifyText, color: documents.verified === 1 ? '#34a853' : documents.face_photo ? '#f9a825' : '#ea4335'}}>
                 {documents.verified === 1 ? '✅ Fully Verified!' : documents.face_photo ? '⏳ Awaiting admin review...' : '❌ Upload all documents to get verified'}
               </p>
-              {documents.rejection_reason && <p style={{ color: '#ea4335', fontSize: '13px', margin: '4px 0 0 0' }}>Reason: {documents.rejection_reason}</p>}
             </div>
-            <div style={styles.docCard}>
-              <p style={styles.docTitle}>📸 Face Selfie</p>
-              <p style={styles.docHint}>Clear selfie for identity verification</p>
-              {documents.face_photo ? <img src={documents.face_photo} alt="Face" style={styles.docImg} /> : <div style={styles.docEmpty}>No photo</div>}
-              <label style={styles.docUploadBtn}>
-                {documents.face_photo ? 'Retake' : 'Upload'}
-                <input type="file" accept="image/*" capture="user" onChange={(e) => handleDocumentUpload('face_photo', e)} style={{ display: 'none' }} />
-              </label>
-            </div>
-            {[
-              { frontKey: 'license_front', backKey: 'license_back', title: "🪪 Driver's License" },
-              { frontKey: 'national_id_front', backKey: 'national_id_back', title: '🇬🇭 Ghana Card' },
-            ].map(doc => (
+            {[{key:'face_photo',title:'📸 Face Selfie',capture:'user'}].map(doc => (
+              <div key={doc.key} style={styles.docCard}>
+                <p style={styles.docTitle}>{doc.title}</p>
+                {documents[doc.key] ? <img src={documents[doc.key]} alt="" style={styles.docImg} /> : <div style={styles.docEmpty}>No photo</div>}
+                <label style={styles.docUploadBtn}>{documents[doc.key] ? 'Retake' : 'Upload'}<input type="file" accept="image/*" capture={doc.capture} onChange={(e) => handleDocumentUpload(doc.key, e)} style={{ display: 'none' }} /></label>
+              </div>
+            ))}
+            {[{frontKey:'license_front',backKey:'license_back',title:"🪪 Driver's License"},{frontKey:'national_id_front',backKey:'national_id_back',title:'🇬🇭 Ghana Card'}].map(doc => (
               <div key={doc.frontKey} style={styles.docCard}>
                 <p style={styles.docTitle}>{doc.title}</p>
                 <div style={styles.docRow}>
                   <div style={styles.docHalf}>
                     <p style={styles.docSide}>Front</p>
-                    {documents[doc.frontKey] ? <img src={documents[doc.frontKey]} alt="Front" style={styles.docImgHalf} /> : <div style={styles.docEmptyHalf}>No photo</div>}
+                    {documents[doc.frontKey] ? <img src={documents[doc.frontKey]} alt="" style={styles.docImgHalf} /> : <div style={styles.docEmptyHalf}>No photo</div>}
                     <label style={styles.docUploadBtn}>Upload<input type="file" accept="image/*" onChange={(e) => handleDocumentUpload(doc.frontKey, e)} style={{ display: 'none' }} /></label>
                   </div>
                   <div style={styles.docHalf}>
                     <p style={styles.docSide}>Back</p>
-                    {documents[doc.backKey] ? <img src={documents[doc.backKey]} alt="Back" style={styles.docImgHalf} /> : <div style={styles.docEmptyHalf}>No photo</div>}
+                    {documents[doc.backKey] ? <img src={documents[doc.backKey]} alt="" style={styles.docImgHalf} /> : <div style={styles.docEmptyHalf}>No photo</div>}
                     <label style={styles.docUploadBtn}>Upload<input type="file" accept="image/*" onChange={(e) => handleDocumentUpload(doc.backKey, e)} style={{ display: 'none' }} /></label>
                   </div>
                 </div>
               </div>
             ))}
-            {[
-              { key: 'insurance_image', title: '🚗 Vehicle Insurance' },
-              { key: 'roadworthiness_image', title: '✅ Roadworthiness Sticker' },
-            ].map(doc => (
+            {[{key:'insurance_image',title:'🚗 Vehicle Insurance'},{key:'roadworthiness_image',title:'✅ Roadworthiness'}].map(doc => (
               <div key={doc.key} style={styles.docCard}>
                 <p style={styles.docTitle}>{doc.title}</p>
-                {documents[doc.key] ? <img src={documents[doc.key]} alt={doc.title} style={styles.docImg} /> : <div style={styles.docEmpty}>No photo</div>}
-                <label style={styles.docUploadBtn}>
-                  {documents[doc.key] ? 'Re-upload' : 'Upload'}
-                  <input type="file" accept="image/*" onChange={(e) => handleDocumentUpload(doc.key, e)} style={{ display: 'none' }} />
-                </label>
+                {documents[doc.key] ? <img src={documents[doc.key]} alt="" style={styles.docImg} /> : <div style={styles.docEmpty}>No photo</div>}
+                <label style={styles.docUploadBtn}>{documents[doc.key] ? 'Re-upload' : 'Upload'}<input type="file" accept="image/*" onChange={(e) => handleDocumentUpload(doc.key, e)} style={{ display: 'none' }} /></label>
               </div>
             ))}
             <button style={styles.submitBtn} onClick={handleSubmitDocuments}>Submit All for Verification</button>
@@ -735,25 +672,19 @@ function DriverDashboard() {
       {/* REFERRALS TAB */}
       {activeTab === 'referrals' && (
         <div style={styles.screen}>
-          <div style={styles.screenHeader}>
-            <button style={styles.backBtn} onClick={() => setActiveTab('menu')}>←</button>
-            <h2 style={styles.screenTitle}>Referrals 👥</h2>
-          </div>
+          <div style={styles.screenHeader}><button style={styles.backBtn} onClick={() => setActiveTab('menu')}>←</button><h2 style={styles.screenTitle}>Referrals 👥</h2></div>
           <div style={styles.content}>
             <div style={styles.referralBox}>
               <p style={styles.referralLabel}>Your Referral Code</p>
               <p style={styles.referralCode}>{profile.referral_code}</p>
               <p style={styles.referralNote}>Earn GH₵ 5 for each friend who joins!</p>
             </div>
-            <h3 style={styles.sectionTitle}>People You Referred ({referrals.length})</h3>
-            {referrals.length === 0 ? <p style={styles.empty}>No referrals yet.</p> : (
-              referrals.map(r => (
-                <div key={r.id} style={styles.card}>
-                  <p style={styles.cardRoute}>👤 {r.referred_name}</p>
-                  <p style={styles.cardDetail}>Joined: {new Date(r.joined_at).toLocaleDateString()}</p>
-                </div>
-              ))
-            )}
+            {referrals.length === 0 ? <p style={styles.emptyText}>No referrals yet.</p> : referrals.map(r => (
+              <div key={r.id} style={styles.card}>
+                <p style={styles.cardRoute}>👤 {r.referred_name}</p>
+                <p style={styles.cardDetail}>Joined: {new Date(r.joined_at).toLocaleDateString()}</p>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -761,18 +692,14 @@ function DriverDashboard() {
       {/* HELP TAB */}
       {activeTab === 'help' && (
         <div style={styles.screen}>
-          <div style={styles.screenHeader}>
-            <button style={styles.backBtn} onClick={() => setActiveTab('menu')}>←</button>
-            <h2 style={styles.screenTitle}>Help Center 🆘</h2>
-          </div>
+          <div style={styles.screenHeader}><button style={styles.backBtn} onClick={() => setActiveTab('menu')}>←</button><h2 style={styles.screenTitle}>Help Center 🆘</h2></div>
           <div style={styles.content}>
             <div style={styles.card}>
               <input style={styles.input} type="text" placeholder="Subject" value={complaint.subject} onChange={(e) => setComplaint({ ...complaint, subject: e.target.value })} />
               <textarea style={styles.textarea} placeholder="Describe your issue..." value={complaint.message} onChange={(e) => setComplaint({ ...complaint, message: e.target.value })} rows={4} />
               <button style={styles.submitBtn} onClick={handleComplaint}>Submit Complaint</button>
             </div>
-            <h3 style={styles.sectionTitle}>Safety Tips</h3>
-            {['Verify passenger identity before starting', 'Share trip details with a trusted contact', 'Keep emergency contacts saved', 'Report suspicious activity immediately'].map((tip, i) => (
+            {['Verify passenger identity before starting','Share trip details with a trusted contact','Keep emergency contacts saved','Report suspicious activity immediately'].map((tip, i) => (
               <div key={i} style={styles.tipCard}><p style={styles.tipText}>🛡️ {tip}</p></div>
             ))}
           </div>
@@ -782,15 +709,12 @@ function DriverDashboard() {
       {/* SETTINGS TAB */}
       {activeTab === 'settings' && (
         <div style={styles.screen}>
-          <div style={styles.screenHeader}>
-            <button style={styles.backBtn} onClick={() => setActiveTab('menu')}>←</button>
-            <h2 style={styles.screenTitle}>Settings ⚙️</h2>
-          </div>
+          <div style={styles.screenHeader}><button style={styles.backBtn} onClick={() => setActiveTab('menu')}>←</button><h2 style={styles.screenTitle}>Settings ⚙️</h2></div>
           <div style={styles.content}>
             <div style={styles.card}>
               <div style={styles.avatarSection}>
-                {profile.profile_picture ? <img src={profile.profile_picture} alt="Profile" style={styles.settingsAvatar} /> : <div style={styles.settingsAvatarPlaceholder}>{userName?.charAt(0)}</div>}
-                <label style={styles.docUploadBtn}>📷 Change Photo<input type="file" accept="image/*" onChange={handlePictureUpload} style={{ display: 'none' }} /></label>
+                {profile.profile_picture ? <img src={profile.profile_picture} alt="" style={styles.settingsAvatar} /> : <div style={styles.settingsAvatarPlaceholder}>{userName?.charAt(0)}</div>}
+                <label style={styles.docUploadBtn}>📷 Change<input type="file" accept="image/*" onChange={handlePictureUpload} style={{ display: 'none' }} /></label>
               </div>
               <input style={styles.input} type="text" placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} />
               <input style={styles.input} type="text" placeholder="Phone Number" value={phone} onChange={(e) => setPhone(e.target.value)} />
@@ -800,22 +724,20 @@ function DriverDashboard() {
               <p style={styles.infoRow}>📧 {profile.email}</p>
               <p style={styles.infoRow}>📅 Joined: {profile.created_at ? new Date(profile.created_at).toLocaleDateString() : ''}</p>
               <p style={styles.infoRow}>🔑 Referral: {profile.referral_code}</p>
-              <p style={styles.infoRow}>🔒 Your data is encrypted and secure</p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Bottom Navigation */}
-      {['home', 'rides', 'earnings', 'messages', 'menu'].includes(activeTab) && !activeTrip && (
+      {/* Bottom Nav */}
+      {['home','rides','earnings','messages','menu'].includes(activeTab) && !activeTrip && (
         <div style={styles.bottomNav}>
           {bottomTabs.map(tab => (
             <button key={tab.id} style={{...styles.navBtn, color: activeTab === tab.id ? '#1a73e8' : '#888'}} onClick={() => setActiveTab(tab.id)}>
               <span style={styles.navIcon}>{tab.icon}</span>
               <span style={styles.navLabel}>{tab.label}</span>
-              {tab.id === 'home' && requests.length > 0 && (
-                <span style={styles.navBadge}>{requests.length}</span>
-              )}
+              {tab.id === 'home' && requests.length > 0 && <span style={styles.navBadge}>{requests.length}</span>}
+              {tab.id === 'messages' && conversations.length > 0 && <span style={{...styles.navBadge, right: '10%'}}></span>}
             </button>
           ))}
         </div>
@@ -830,15 +752,14 @@ const styles = {
   tripScreen: { position: 'fixed', top: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '480px', height: '100vh', zIndex: 4000, display: 'flex', flexDirection: 'column' },
   tripMap: { flex: 1 },
   tripPanel: { backgroundColor: 'white', borderRadius: '24px 24px 0 0', padding: '20px', boxShadow: '0 -4px 20px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', gap: '12px' },
-  tripPanelHeader: { borderBottom: '1px solid #f0f0f0', paddingBottom: '12px' },
-  tripPassenger: { display: 'flex', alignItems: 'center', gap: '12px' },
+  tripPassengerRow: { display: 'flex', alignItems: 'center', gap: '12px' },
   tripAvatar: { width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover' },
   tripAvatarPlaceholder: { width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#34a853', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', fontWeight: 'bold', color: 'white' },
   tripPassengerName: { fontSize: '16px', fontWeight: 'bold', color: '#333', margin: '0 0 2px 0' },
   tripPhone: { fontSize: '13px', color: '#34a853', textDecoration: 'none' },
-  tripFare: { marginLeft: 'auto', fontSize: '22px', fontWeight: 'bold', color: '#1a73e8' },
-  tripRoute: { backgroundColor: '#f8f9fa', borderRadius: '12px', padding: '12px' },
-  tripStatusLabel: { fontSize: '13px', fontWeight: 'bold', color: '#888', margin: '0 0 6px 0' },
+  tripFare: { fontSize: '22px', fontWeight: 'bold', color: '#1a73e8', margin: 0 },
+  tripRouteBox: { backgroundColor: '#f8f9fa', borderRadius: '12px', padding: '12px' },
+  tripStatusLabel: { fontSize: '13px', fontWeight: 'bold', margin: '0 0 6px 0' },
   tripLocation: { fontSize: '15px', fontWeight: 'bold', color: '#333', margin: 0 },
   startTripBtn: { padding: '16px', backgroundColor: '#34a853', color: 'white', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: 'bold', cursor: 'pointer' },
   endTripBtn: { padding: '16px', backgroundColor: '#1a73e8', color: 'white', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: 'bold', cursor: 'pointer' },
@@ -879,7 +800,7 @@ const styles = {
   liveNum: { fontSize: '18px', fontWeight: 'bold', color: '#1a73e8', margin: '0 0 2px 0' },
   liveLbl: { fontSize: '11px', color: '#888', margin: 0 },
   liveDiv: { width: '1px', height: '28px', backgroundColor: '#eee' },
-  goBtn: { width: '100%', padding: '16px', color: 'white', border: 'none', borderRadius: '14px', fontSize: '17px', fontWeight: 'bold', cursor: 'pointer', letterSpacing: '1px', transition: 'all 0.2s', marginBottom: '10px' },
+  goBtn: { width: '100%', padding: '16px', color: 'white', border: 'none', borderRadius: '14px', fontSize: '17px', fontWeight: 'bold', cursor: 'pointer', letterSpacing: '1px', marginBottom: '10px' },
   postRideLink: { display: 'block', textAlign: 'center', padding: '8px', color: '#1a73e8', textDecoration: 'none', fontSize: '14px', fontWeight: 'bold' },
   screen: { flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#f8f9fa' },
   screenHeader: { backgroundColor: 'white', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
@@ -900,13 +821,18 @@ const styles = {
   earningMini: { flex: 1, backgroundColor: 'white', borderRadius: '12px', padding: '16px', textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
   earningMiniNum: { fontSize: '18px', fontWeight: 'bold', color: '#1a73e8', margin: '0 0 4px 0' },
   earningMiniLbl: { fontSize: '12px', color: '#888', margin: 0 },
-  sectionTitle: { fontSize: '16px', fontWeight: 'bold', color: '#333', margin: '8px 0 12px 0' },
+  emptyBox: { textAlign: 'center', padding: '48px 24px' },
+  emptyIcon: { fontSize: '48px', margin: '0 0 12px 0' },
+  emptyText: { fontSize: '18px', fontWeight: 'bold', color: '#333', margin: '0 0 8px 0' },
+  emptyHint: { fontSize: '13px', color: '#888', margin: 0 },
   convItem: { display: 'flex', alignItems: 'center', gap: '12px', backgroundColor: 'white', borderRadius: '12px', padding: '14px', marginBottom: '8px', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
   convAvatar: { width: '44px', height: '44px', borderRadius: '50%', backgroundColor: '#1a73e8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 'bold', color: 'white', flexShrink: 0 },
   convName: { margin: '0 0 4px 0', fontWeight: 'bold', fontSize: '14px', color: '#333' },
-  convMsg: { margin: 0, fontSize: '12px', color: '#888' },
+  convMsg: { margin: 0, fontSize: '12px', color: '#888', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  convArrow: { fontSize: '20px', color: '#ccc' },
   chatScreen: { flex: 1, display: 'flex', flexDirection: 'column', height: '100vh' },
   chatTopBar: { backgroundColor: 'white', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
+  chatAvatar: { width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#1a73e8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 'bold', color: 'white' },
   chatName: { fontSize: '16px', fontWeight: 'bold', color: '#333', margin: 0 },
   msgList: { flex: 1, padding: '16px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', backgroundColor: '#f8f9fa' },
   msgBubble: { maxWidth: '75%', padding: '10px 14px', borderRadius: '18px' },
@@ -924,11 +850,15 @@ const styles = {
   menuLabel: { flex: 1, fontSize: '15px', color: '#333', fontWeight: '500' },
   menuArrow: { fontSize: '20px', color: '#ccc' },
   logoutItem: { display: 'flex', alignItems: 'center', gap: '14px', backgroundColor: '#fce8e6', borderRadius: '12px', padding: '16px', cursor: 'pointer', border: 'none', width: '100%', textAlign: 'left' },
+  ratingBox: { backgroundColor: 'white', borderRadius: '16px', padding: '20px', marginTop: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
+  ratingTitle: { fontSize: '16px', fontWeight: 'bold', color: '#333', margin: '0 0 12px 0' },
+  starsRow: { display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '16px' },
+  star: { background: 'none', border: 'none', cursor: 'pointer', padding: 0 },
+  ratingInput: { width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #ddd', fontSize: '14px', resize: 'vertical', outline: 'none', marginBottom: '12px', boxSizing: 'border-box' },
   verifyBanner: { borderRadius: '12px', padding: '14px', marginBottom: '16px' },
   verifyText: { margin: 0, fontWeight: 'bold', fontSize: '14px' },
   docCard: { backgroundColor: 'white', borderRadius: '16px', padding: '16px', marginBottom: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
   docTitle: { fontWeight: 'bold', color: '#333', fontSize: '15px', margin: '0 0 4px 0' },
-  docHint: { color: '#888', fontSize: '12px', margin: '0 0 12px 0' },
   docImg: { width: '100%', height: '160px', objectFit: 'cover', borderRadius: '8px', border: '2px solid #34a853', marginBottom: '8px' },
   docEmpty: { width: '100%', height: '120px', backgroundColor: '#f8f9fa', borderRadius: '8px', border: '2px dashed #ddd', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#aaa', fontSize: '13px', marginBottom: '8px' },
   docRow: { display: 'flex', gap: '12px' },
@@ -942,7 +872,7 @@ const styles = {
   referralLabel: { fontSize: '13px', opacity: 0.7, margin: '0 0 8px 0' },
   referralCode: { fontSize: '32px', fontWeight: 'bold', letterSpacing: '6px', margin: '0 0 8px 0' },
   referralNote: { fontSize: '13px', opacity: 0.75, margin: 0 },
-  tipCard: { backgroundColor: 'white', borderRadius: '12px', padding: '14px 16px', marginBottom: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)' },
+  tipCard: { backgroundColor: 'white', borderRadius: '12px', padding: '14px 16px', marginBottom: '8px' },
   tipText: { margin: 0, fontSize: '13px', color: '#444' },
   input: { width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #ddd', fontSize: '14px', outline: 'none', marginBottom: '10px', boxSizing: 'border-box' },
   textarea: { width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #ddd', fontSize: '14px', resize: 'vertical', outline: 'none', marginBottom: '10px', boxSizing: 'border-box' },
@@ -950,7 +880,7 @@ const styles = {
   settingsAvatar: { width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover' },
   settingsAvatarPlaceholder: { width: '64px', height: '64px', borderRadius: '50%', backgroundColor: '#1a73e8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', fontWeight: 'bold', color: 'white' },
   infoRow: { fontSize: '14px', color: '#555', margin: '0 0 10px 0' },
-  empty: { textAlign: 'center', color: '#aaa', padding: '32px 16px', fontSize: '14px' },
+  emptyText: { textAlign: 'center', color: '#aaa', padding: '24px', fontSize: '14px' },
   bottomNav: { position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '480px', backgroundColor: 'white', display: 'flex', borderTop: '1px solid #f0f0f0', zIndex: 2000, boxShadow: '0 -2px 10px rgba(0,0,0,0.08)' },
   navBtn: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', padding: '8px 4px', background: 'none', border: 'none', cursor: 'pointer', position: 'relative' },
   navIcon: { fontSize: '22px' },

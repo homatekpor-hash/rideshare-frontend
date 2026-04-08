@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -14,17 +14,84 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-function LocationMarker({ isOnline }) {
-  const [position, setPosition] = useState([5.6037, -0.1870]);
+// Sound effects using Web Audio API
+const playSound = (type) => {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const oscillator = ctx.createOscillator();
+  const gainNode = ctx.createGain();
+  oscillator.connect(gainNode);
+  gainNode.connect(ctx.destination);
+
+  if (type === 'online') {
+    oscillator.frequency.setValueAtTime(523, ctx.currentTime);
+    oscillator.frequency.setValueAtTime(659, ctx.currentTime + 0.1);
+    oscillator.frequency.setValueAtTime(784, ctx.currentTime + 0.2);
+    gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+    oscillator.start(ctx.currentTime);
+    oscillator.stop(ctx.currentTime + 0.5);
+  } else if (type === 'offline') {
+    oscillator.frequency.setValueAtTime(784, ctx.currentTime);
+    oscillator.frequency.setValueAtTime(523, ctx.currentTime + 0.2);
+    gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+    oscillator.start(ctx.currentTime);
+    oscillator.stop(ctx.currentTime + 0.5);
+  } else if (type === 'request') {
+    const playBeep = (time) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.setValueAtTime(880, time);
+      gain.gain.setValueAtTime(0.4, time);
+      gain.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
+      osc.start(time);
+      osc.stop(time + 0.15);
+    };
+    playBeep(ctx.currentTime);
+    playBeep(ctx.currentTime + 0.2);
+    playBeep(ctx.currentTime + 0.4);
+  }
+};
+
+// Voice navigation
+const speak = (text) => {
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.9;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+    window.speechSynthesis.speak(utterance);
+  }
+};
+
+function NavigationMap({ driverPos, targetLat, targetLng, label, color }) {
   const map = useMap();
   useEffect(() => {
-    navigator.geolocation.getCurrentPosition((pos) => {
-      const { latitude, longitude } = pos.coords;
-      setPosition([latitude, longitude]);
-      map.setView([latitude, longitude], 15);
-    }, () => { map.setView([5.6037, -0.1870], 13); });
-  }, []);
-  return <Marker position={position} />;
+    if (driverPos && targetLat && targetLng) {
+      const bounds = [[driverPos[0], driverPos[1]], [targetLat, targetLng]];
+      map.fitBounds(bounds, { padding: [40, 40] });
+    }
+  }, [driverPos, targetLat, targetLng]);
+
+  const targetIcon = L.divIcon({
+    html: `<div style="background:${color};width:20px;height:20px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)"></div>`,
+    className: '',
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+  });
+
+  return (
+    <>
+      {driverPos && <Marker position={driverPos} />}
+      {targetLat && targetLng && <Marker position={[targetLat, targetLng]} icon={targetIcon} />}
+      {driverPos && targetLat && targetLng && (
+        <Polyline positions={[driverPos, [targetLat, targetLng]]} color={color} weight={4} dashArray="8 4" />
+      )}
+    </>
+  );
 }
 
 function DriverDashboard() {
@@ -47,6 +114,9 @@ function DriverDashboard() {
   const [newMessage, setNewMessage] = useState('');
   const [toggling, setToggling] = useState(false);
   const [requests, setRequests] = useState([]);
+  const [activeTrip, setActiveTrip] = useState(null);
+  const [driverPos, setDriverPos] = useState(null);
+  const prevRequestCount = useRef(0);
 
   const userId = localStorage.getItem('userId');
   const userName = localStorage.getItem('userName');
@@ -57,14 +127,38 @@ function DriverDashboard() {
       navigate('/login');
       return;
     }
-    setIsOnline(localStorage.getItem('isOnline') === '1');
+    const online = localStorage.getItem('isOnline') === '1';
+    setIsOnline(online);
     fetchAll();
     fetchRequests();
+    fetchActiveTrip();
+
+    // Watch driver position
+    const watchId = navigator.geolocation.watchPosition((pos) => {
+      setDriverPos([pos.coords.latitude, pos.coords.longitude]);
+    }, () => {
+      setDriverPos([5.6037, -0.1870]);
+    }, { enableHighAccuracy: true });
+
     const interval = setInterval(() => {
       fetchRequests();
+      fetchActiveTrip();
     }, 5000);
-    return () => clearInterval(interval);
+
+    return () => {
+      clearInterval(interval);
+      navigator.geolocation.clearWatch(watchId);
+    };
   }, []);
+
+  // Play sound when new requests arrive
+  useEffect(() => {
+    if (requests.length > prevRequestCount.current && requests.length > 0) {
+      playSound('request');
+      speak(`New ride request from ${requests[0].passenger_name}. From ${requests[0].from_location} to ${requests[0].to_location}.`);
+    }
+    prevRequestCount.current = requests.length;
+  }, [requests]);
 
   const fetchAll = async () => {
     try {
@@ -98,11 +192,19 @@ function DriverDashboard() {
     } catch (error) { console.error('Error fetching requests:', error); }
   };
 
-  const handleAccept = async (bookingId) => {
+  const fetchActiveTrip = async () => {
+    try {
+      const res = await axios.get(`${API}/driver/active-trip/${userId}`);
+      setActiveTrip(res.data.trip);
+    } catch (error) { console.error('Error fetching active trip:', error); }
+  };
+
+  const handleAccept = async (bookingId, req) => {
     await axios.put(`${API}/bookings/${bookingId}/accept`);
     setMessage('✅ Booking accepted!');
+    speak(`Booking accepted. Navigating to pickup point. Pick up ${req.passenger_name} at ${req.from_location}.`);
     fetchRequests();
-    fetchAll();
+    fetchActiveTrip();
     setTimeout(() => setMessage(''), 3000);
   };
 
@@ -113,6 +215,26 @@ function DriverDashboard() {
     setTimeout(() => setMessage(''), 3000);
   };
 
+  const handleStartTrip = async () => {
+    if (!activeTrip) return;
+    await axios.put(`${API}/bookings/${activeTrip.id}/start`);
+    setMessage('🚗 Trip started!');
+    speak(`Trip started. Navigating to ${activeTrip.to_location}.`);
+    fetchActiveTrip();
+    setTimeout(() => setMessage(''), 3000);
+  };
+
+  const handleEndTrip = async () => {
+    if (!activeTrip) return;
+    const res = await axios.put(`${API}/bookings/${activeTrip.id}/end`);
+    const net = res.data.netAmount?.toFixed(2);
+    setMessage(`✅ Trip completed! GH₵ ${net} added to your wallet.`);
+    speak(`Trip completed. You earned GH₵ ${net}.`);
+    setActiveTrip(null);
+    fetchAll();
+    setTimeout(() => setMessage(''), 5000);
+  };
+
   const handleToggleOnline = async () => {
     setToggling(true);
     const newStatus = !isOnline;
@@ -120,6 +242,8 @@ function DriverDashboard() {
       await axios.put(`${API}/users/${userId}/status`, { is_online: newStatus ? 1 : 0 });
       setIsOnline(newStatus);
       localStorage.setItem('isOnline', newStatus ? '1' : '0');
+      playSound(newStatus ? 'online' : 'offline');
+      speak(newStatus ? 'You are now online. Ready to receive ride requests.' : 'You are now offline.');
       setMessage(newStatus ? '🟢 You are now Online!' : '⚫ You are now Offline.');
       setTimeout(() => setMessage(''), 3000);
     } catch (error) { console.error('Error:', error); }
@@ -242,13 +366,92 @@ function DriverDashboard() {
     { id: 'settings', icon: '⚙️', label: 'Settings' },
   ];
 
+  const tripStatus = activeTrip?.status;
+
   return (
     <div style={styles.app}>
       {/* Toast */}
       {message && <div style={styles.toast}>{message}</div>}
 
-      {/* Ride Requests Popup - shows on top of everything when online */}
-      {isOnline && requests.length > 0 && (
+      {/* Active Trip Navigation Screen */}
+      {activeTrip && activeTab === 'home' && (
+        <div style={styles.tripScreen}>
+          {/* Map */}
+          <div style={styles.tripMap}>
+            <MapContainer
+              center={driverPos || [5.6037, -0.1870]}
+              zoom={14}
+              style={{ height: '100%', width: '100%' }}
+              zoomControl={false}
+            >
+              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+              <NavigationMap
+                driverPos={driverPos}
+                targetLat={tripStatus === 'accepted' ? activeTrip.from_lat : activeTrip.to_lat}
+                targetLng={tripStatus === 'accepted' ? activeTrip.from_lng : activeTrip.to_lng}
+                label={tripStatus === 'accepted' ? 'Pickup' : 'Dropoff'}
+                color={tripStatus === 'accepted' ? '#34a853' : '#1a73e8'}
+              />
+            </MapContainer>
+          </div>
+
+          {/* Trip Info Panel */}
+          <div style={styles.tripPanel}>
+            <div style={styles.tripPanelHeader}>
+              <div style={styles.tripPassenger}>
+                {activeTrip.passenger_pic
+                  ? <img src={activeTrip.passenger_pic} alt="Passenger" style={styles.tripAvatar} />
+                  : <div style={styles.tripAvatarPlaceholder}>{activeTrip.passenger_name?.charAt(0)}</div>}
+                <div>
+                  <p style={styles.tripPassengerName}>{activeTrip.passenger_name}</p>
+                  {activeTrip.passenger_phone && (
+                    <a href={`tel:${activeTrip.passenger_phone}`} style={styles.tripPhone}>📞 {activeTrip.passenger_phone}</a>
+                  )}
+                </div>
+                <p style={styles.tripFare}>GH₵ {activeTrip.price}</p>
+              </div>
+            </div>
+
+            <div style={styles.tripRoute}>
+              {tripStatus === 'accepted' ? (
+                <>
+                  <p style={styles.tripStatusLabel}>🟡 Heading to Pickup Point</p>
+                  <p style={styles.tripLocation}>📍 {activeTrip.from_location}</p>
+                </>
+              ) : (
+                <>
+                  <p style={styles.tripStatusLabel}>🔵 Trip in Progress</p>
+                  <p style={styles.tripLocation}>🏁 {activeTrip.to_location}</p>
+                </>
+              )}
+            </div>
+
+            {tripStatus === 'accepted' && (
+              <button style={styles.startTripBtn} onClick={handleStartTrip}>
+                🚦 Arrived at Pickup — Start Trip
+              </button>
+            )}
+            {tripStatus === 'started' && (
+              <button style={styles.endTripBtn} onClick={handleEndTrip}>
+                🏁 End Trip & Get Paid
+              </button>
+            )}
+
+            <button style={styles.voiceBtn} onClick={() => {
+              if (tripStatus === 'accepted') {
+                speak(`Head to ${activeTrip.from_location} to pick up ${activeTrip.passenger_name}.`);
+              } else {
+                speak(`Navigate to ${activeTrip.to_location} to drop off the passenger.`);
+              }
+            }}>
+              🔊 Voice Instructions
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Ride Requests Popup */}
+      {isOnline && requests.length > 0 && !activeTrip && (
         <div style={styles.requestsPopup}>
           <p style={styles.requestsTitle}>🔔 New Ride Requests ({requests.length})</p>
           {requests.map(req => (
@@ -274,7 +477,7 @@ function DriverDashboard() {
               </div>
               <div style={styles.requestBtns}>
                 <button style={styles.declineBtn} onClick={() => handleDecline(req.id)}>✕ Decline</button>
-                <button style={styles.acceptBtn} onClick={() => handleAccept(req.id)}>✓ Accept</button>
+                <button style={styles.acceptBtn} onClick={() => handleAccept(req.id, req)}>✓ Accept</button>
               </div>
             </div>
           ))}
@@ -282,12 +485,12 @@ function DriverDashboard() {
       )}
 
       {/* HOME TAB */}
-      {activeTab === 'home' && (
+      {activeTab === 'home' && !activeTrip && (
         <div style={styles.homeScreen}>
           <div style={styles.fullMap}>
-            <MapContainer center={[5.6037, -0.1870]} zoom={13} style={{ height: '100%', width: '100%' }} zoomControl={false}>
+            <MapContainer center={driverPos || [5.6037, -0.1870]} zoom={13} style={{ height: '100%', width: '100%' }} zoomControl={false}>
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-              <LocationMarker isOnline={isOnline} />
+              {driverPos && <Marker position={driverPos} />}
             </MapContainer>
             {!isOnline && (
               <div style={styles.mapOverlay}>
@@ -482,7 +685,6 @@ function DriverDashboard() {
               </p>
               {documents.rejection_reason && <p style={{ color: '#ea4335', fontSize: '13px', margin: '4px 0 0 0' }}>Reason: {documents.rejection_reason}</p>}
             </div>
-
             <div style={styles.docCard}>
               <p style={styles.docTitle}>📸 Face Selfie</p>
               <p style={styles.docHint}>Clear selfie for identity verification</p>
@@ -492,7 +694,6 @@ function DriverDashboard() {
                 <input type="file" accept="image/*" capture="user" onChange={(e) => handleDocumentUpload('face_photo', e)} style={{ display: 'none' }} />
               </label>
             </div>
-
             {[
               { frontKey: 'license_front', backKey: 'license_back', title: "🪪 Driver's License" },
               { frontKey: 'national_id_front', backKey: 'national_id_back', title: '🇬🇭 Ghana Card' },
@@ -513,7 +714,6 @@ function DriverDashboard() {
                 </div>
               </div>
             ))}
-
             {[
               { key: 'insurance_image', title: '🚗 Vehicle Insurance' },
               { key: 'roadworthiness_image', title: '✅ Roadworthiness Sticker' },
@@ -527,7 +727,6 @@ function DriverDashboard() {
                 </label>
               </div>
             ))}
-
             <button style={styles.submitBtn} onClick={handleSubmitDocuments}>Submit All for Verification</button>
           </div>
         </div>
@@ -608,7 +807,7 @@ function DriverDashboard() {
       )}
 
       {/* Bottom Navigation */}
-      {['home', 'rides', 'earnings', 'messages', 'menu'].includes(activeTab) && (
+      {['home', 'rides', 'earnings', 'messages', 'menu'].includes(activeTab) && !activeTrip && (
         <div style={styles.bottomNav}>
           {bottomTabs.map(tab => (
             <button key={tab.id} style={{...styles.navBtn, color: activeTab === tab.id ? '#1a73e8' : '#888'}} onClick={() => setActiveTab(tab.id)}>
@@ -628,6 +827,22 @@ function DriverDashboard() {
 const styles = {
   app: { display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#fff', overflow: 'hidden', maxWidth: '480px', margin: '0 auto', position: 'relative' },
   toast: { position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)', backgroundColor: '#333', color: 'white', padding: '12px 24px', borderRadius: '30px', fontSize: '14px', zIndex: 9999, whiteSpace: 'nowrap', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' },
+  tripScreen: { position: 'fixed', top: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '480px', height: '100vh', zIndex: 4000, display: 'flex', flexDirection: 'column' },
+  tripMap: { flex: 1 },
+  tripPanel: { backgroundColor: 'white', borderRadius: '24px 24px 0 0', padding: '20px', boxShadow: '0 -4px 20px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', gap: '12px' },
+  tripPanelHeader: { borderBottom: '1px solid #f0f0f0', paddingBottom: '12px' },
+  tripPassenger: { display: 'flex', alignItems: 'center', gap: '12px' },
+  tripAvatar: { width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover' },
+  tripAvatarPlaceholder: { width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#34a853', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', fontWeight: 'bold', color: 'white' },
+  tripPassengerName: { fontSize: '16px', fontWeight: 'bold', color: '#333', margin: '0 0 2px 0' },
+  tripPhone: { fontSize: '13px', color: '#34a853', textDecoration: 'none' },
+  tripFare: { marginLeft: 'auto', fontSize: '22px', fontWeight: 'bold', color: '#1a73e8' },
+  tripRoute: { backgroundColor: '#f8f9fa', borderRadius: '12px', padding: '12px' },
+  tripStatusLabel: { fontSize: '13px', fontWeight: 'bold', color: '#888', margin: '0 0 6px 0' },
+  tripLocation: { fontSize: '15px', fontWeight: 'bold', color: '#333', margin: 0 },
+  startTripBtn: { padding: '16px', backgroundColor: '#34a853', color: 'white', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: 'bold', cursor: 'pointer' },
+  endTripBtn: { padding: '16px', backgroundColor: '#1a73e8', color: 'white', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: 'bold', cursor: 'pointer' },
+  voiceBtn: { padding: '12px', backgroundColor: '#f8f9fa', color: '#333', border: '1px solid #ddd', borderRadius: '12px', fontSize: '14px', cursor: 'pointer' },
   requestsPopup: { position: 'fixed', top: '80px', left: '50%', transform: 'translateX(-50%)', width: '92%', maxWidth: '440px', zIndex: 3000, display: 'flex', flexDirection: 'column', gap: '10px' },
   requestsTitle: { backgroundColor: '#1a1a2e', color: 'white', padding: '10px 16px', borderRadius: '10px', fontSize: '14px', fontWeight: 'bold', margin: 0, textAlign: 'center' },
   requestCard: { backgroundColor: 'white', borderRadius: '16px', padding: '16px', boxShadow: '0 8px 32px rgba(0,0,0,0.25)', border: '2px solid #34a853' },

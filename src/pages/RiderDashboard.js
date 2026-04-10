@@ -99,7 +99,7 @@ function RiderDashboard() {
       (pos) => setRiderPos([pos.coords.latitude, pos.coords.longitude]),
       () => setRiderPos([5.6037, -0.1870])
     );
-    const interval = setInterval(() => { fetchActiveTrip(); }, 5000);
+    const interval = setInterval(() => { fetchActiveTrip(); fetchAll(); }, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -112,9 +112,6 @@ function RiderDashboard() {
     if (activeTrip.status === 'started' && prevTripStatus !== 'started') {
       playSound('started');
       speak(`Your trip has started. You are heading to ${activeTrip.to_location}.`);
-    }
-    if (activeTrip.status === 'completed' && prevTripStatus !== 'completed') {
-      speak('You have arrived at your destination. Thank you for riding with RideShare Ghana!');
     }
     setPrevTripStatus(activeTrip.status);
   }, [activeTrip?.status]);
@@ -241,7 +238,14 @@ function RiderDashboard() {
       });
       setNewMessage('');
       fetchChatMessages(selectedChat.other_user_id);
+      fetchAll();
     } catch (e) { setMessage('❌ Failed to send message.'); }
+  };
+
+  const openChatWithDriver = (driverId, driverName) => {
+    setSelectedChat({ other_user_id: driverId, other_user_name: driverName });
+    fetchChatMessages(driverId);
+    setActiveTab('messages');
   };
 
   const handleLogout = () => { localStorage.clear(); navigate('/login'); };
@@ -284,9 +288,14 @@ function RiderDashboard() {
                 <p style={styles.tripFare}>GH₵ {activeTrip.price}</p>
               </div>
             </div>
-            <button style={styles.voiceBtn} onClick={() => speak(tripStatus === 'accepted' ? `Your driver ${activeTrip.driver_name} is coming to pick you up at ${activeTrip.from_location}.` : `You are on your way to ${activeTrip.to_location}.`)}>
-              🔊 Voice Update
-            </button>
+            <div style={styles.tripActionRow}>
+              <button style={styles.voiceBtn} onClick={() => speak(tripStatus === 'accepted' ? `Your driver ${activeTrip.driver_name} is coming to pick you up at ${activeTrip.from_location}.` : `You are on your way to ${activeTrip.to_location}.`)}>
+                🔊 Voice
+              </button>
+              <button style={styles.msgDriverTripBtn} onClick={() => openChatWithDriver(activeTrip.driver_id, activeTrip.driver_name)}>
+                💬 Message Driver
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -409,8 +418,11 @@ function RiderDashboard() {
                   <p style={styles.rideSeats}>💺 {ride.seats_available} seats</p>
                   <p style={styles.rideTime}>🕐 {ride.departure_time}</p>
                 </div>
-                {ride.driver_phone && <a href={`tel:${ride.driver_phone}`} style={styles.callDriverBtn}>📞 Call Driver</a>}
-                <button style={styles.bookNowBtn} onClick={() => handleBookRide(ride.id)}>Book Now</button>
+                <div style={styles.rideResultActions}>
+                  {ride.driver_phone && <a href={`tel:${ride.driver_phone}`} style={styles.callDriverBtn}>📞 Call</a>}
+                  <button style={styles.msgDriverBtn} onClick={() => openChatWithDriver(ride.driver_id, ride.driver_name)}>💬 Message</button>
+                  <button style={styles.bookNowBtn} onClick={() => handleBookRide(ride.id)}>Book Now</button>
+                </div>
               </div>
             ))}
           </div>
@@ -448,7 +460,10 @@ function RiderDashboard() {
                   <p style={styles.tripDetail}>🚗 {booking.driver_name}</p>
                   <p style={styles.tripDetail}>🕐 {booking.departure_time}</p>
                   <p style={styles.tripDetail}>💰 GH₵ {booking.price}</p>
-                  {booking.driver_phone && <a href={`tel:${booking.driver_phone}`} style={styles.callBtn}>📞 Call</a>}
+                </div>
+                <div style={styles.tripBtnRow}>
+                  {booking.driver_phone && <a href={`tel:${booking.driver_phone}`} style={styles.callBtnSmall}>📞 Call</a>}
+                  <button style={styles.msgBtnSmall} onClick={() => openChatWithDriver(booking.driver_id, booking.driver_name)}>💬 Message Driver</button>
                 </div>
                 <div style={styles.tripFooter}>
                   <span style={{...styles.statusBadge,
@@ -470,7 +485,6 @@ function RiderDashboard() {
               </div>
             ))}
 
-            {/* Rating Modal */}
             {selectedRide && (
               <div style={styles.ratingModal}>
                 <div style={styles.ratingCard}>
@@ -525,7 +539,7 @@ function RiderDashboard() {
                 <p style={styles.chatName}>{selectedChat.other_user_name}</p>
               </div>
               <div style={styles.msgList}>
-                {chatMessages.length === 0 && <p style={{textAlign:'center',color:'#aaa',padding:'20px',fontSize:'13px'}}>No messages yet. Say hello!</p>}
+                {chatMessages.length === 0 && <p style={{textAlign:'center',color:'#aaa',padding:'20px',fontSize:'13px'}}>No messages yet. Say hello! 👋</p>}
                 {chatMessages.map(msg => (
                   <div key={msg.id} style={{...styles.msgBubble, alignSelf: String(msg.sender_id) === String(userId) ? 'flex-end' : 'flex-start', backgroundColor: String(msg.sender_id) === String(userId) ? '#34a853' : '#f1f3f4', color: String(msg.sender_id) === String(userId) ? 'white' : '#333'}}>
                     <p style={{ margin: 0, fontSize: '14px' }}>{msg.message}</p>
@@ -582,13 +596,9 @@ function RiderDashboard() {
         </div>
       )}
 
-      {/* PERSONAL INFO */}
       {activeTab === 'personal' && (
         <div style={styles.screen}>
-          <div style={styles.screenHeader}>
-            <button style={styles.backBtn} onClick={() => setActiveTab('account')}>←</button>
-            <h2 style={styles.screenTitle}>Personal Info</h2>
-          </div>
+          <div style={styles.screenHeader}><button style={styles.backBtn} onClick={() => setActiveTab('account')}>←</button><h2 style={styles.screenTitle}>Personal Info</h2></div>
           <div style={styles.content}>
             <div style={styles.formCard}>
               <input style={styles.input} type="text" placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} />
@@ -598,24 +608,16 @@ function RiderDashboard() {
             </div>
             <div style={styles.formCard}>
               <p style={styles.sectionLabel}>Upload ID Card</p>
-              <p style={{fontSize:'13px',color:'#888',margin:'0 0 12px 0'}}>Upload your Ghana Card for identity verification</p>
               {idImage && <img src={idImage} alt="ID" style={styles.idPreview} />}
-              <label style={styles.uploadIdBtn}>
-                📄 Upload Ghana Card
-                <input type="file" accept="image/*" onChange={(e) => { const f = e.target.files[0]; if (f) { const r = new FileReader(); r.onloadend = () => setIdImage(r.result); r.readAsDataURL(f); }}} style={{ display: 'none' }} />
-              </label>
+              <label style={styles.uploadIdBtn}>📄 Upload Ghana Card<input type="file" accept="image/*" onChange={(e) => { const f = e.target.files[0]; if (f) { const r = new FileReader(); r.onloadend = () => setIdImage(r.result); r.readAsDataURL(f); }}} style={{ display: 'none' }} /></label>
             </div>
           </div>
         </div>
       )}
 
-      {/* WALLET */}
       {activeTab === 'wallet' && (
         <div style={styles.screen}>
-          <div style={styles.screenHeader}>
-            <button style={styles.backBtn} onClick={() => setActiveTab('account')}>←</button>
-            <h2 style={styles.screenTitle}>Wallet 👛</h2>
-          </div>
+          <div style={styles.screenHeader}><button style={styles.backBtn} onClick={() => setActiveTab('account')}>←</button><h2 style={styles.screenTitle}>Wallet 👛</h2></div>
           <div style={styles.content}>
             <div style={styles.walletBigCard}>
               <p style={styles.walletBigLabel}>Available Balance</p>
@@ -633,25 +635,17 @@ function RiderDashboard() {
         </div>
       )}
 
-      {/* RATE A DRIVER */}
       {activeTab === 'rate' && (
         <div style={styles.screen}>
-          <div style={styles.screenHeader}>
-            <button style={styles.backBtn} onClick={() => setActiveTab('account')}>←</button>
-            <h2 style={styles.screenTitle}>Rate a Driver ⭐</h2>
-          </div>
+          <div style={styles.screenHeader}><button style={styles.backBtn} onClick={() => setActiveTab('account')}>←</button><h2 style={styles.screenTitle}>Rate a Driver ⭐</h2></div>
           <div style={styles.content}>
             <p style={{fontSize:'13px',color:'#888',marginBottom:'16px'}}>Select a completed trip to rate the driver</p>
             {myBookings.filter(b => b.booking_status === 'completed').length === 0 ? (
-              <div style={styles.emptyBox}>
-                <p style={styles.emptyIcon}>⭐</p>
-                <p style={styles.emptyText}>No completed trips yet</p>
-              </div>
+              <div style={styles.emptyBox}><p style={styles.emptyIcon}>⭐</p><p style={styles.emptyText}>No completed trips yet</p></div>
             ) : myBookings.filter(b => b.booking_status === 'completed').map(booking => (
               <div key={booking.id} style={{...styles.tripCard, border: selectedRide?.id === booking.id ? '2px solid #34a853' : 'none', cursor: 'pointer'}} onClick={() => setSelectedRide(booking)}>
                 <p style={styles.cardRoute}>📍 {booking.from_location} → {booking.to_location}</p>
                 <p style={styles.cardDetail}>🚗 Driver: {booking.driver_name}</p>
-                <p style={styles.cardDetail}>💰 GH₵ {booking.price}</p>
               </div>
             ))}
             {selectedRide && (
@@ -662,7 +656,7 @@ function RiderDashboard() {
                     <button key={star} style={{...styles.star, fontSize: star <= rating ? '36px' : '28px', opacity: star <= rating ? 1 : 0.3}} onClick={() => setRating(star)}>⭐</button>
                   ))}
                 </div>
-                <textarea style={styles.ratingInput} placeholder="Leave a comment about your driver..." value={comment} onChange={(e) => setComment(e.target.value)} rows={3} />
+                <textarea style={styles.ratingInput} placeholder="Leave a comment..." value={comment} onChange={(e) => setComment(e.target.value)} rows={3} />
                 <button style={styles.saveBtn} onClick={handleSubmitRating}>Submit Rating</button>
               </div>
             )}
@@ -670,13 +664,9 @@ function RiderDashboard() {
         </div>
       )}
 
-      {/* REFERRALS */}
       {activeTab === 'referrals' && (
         <div style={styles.screen}>
-          <div style={styles.screenHeader}>
-            <button style={styles.backBtn} onClick={() => setActiveTab('account')}>←</button>
-            <h2 style={styles.screenTitle}>Referrals 👥</h2>
-          </div>
+          <div style={styles.screenHeader}><button style={styles.backBtn} onClick={() => setActiveTab('account')}>←</button><h2 style={styles.screenTitle}>Referrals 👥</h2></div>
           <div style={styles.content}>
             <div style={styles.referralBox}>
               <p style={styles.referralLabel}>Your Code</p>
@@ -693,13 +683,9 @@ function RiderDashboard() {
         </div>
       )}
 
-      {/* HELP */}
       {activeTab === 'help' && (
         <div style={styles.screen}>
-          <div style={styles.screenHeader}>
-            <button style={styles.backBtn} onClick={() => setActiveTab('account')}>←</button>
-            <h2 style={styles.screenTitle}>Help Center 🆘</h2>
-          </div>
+          <div style={styles.screenHeader}><button style={styles.backBtn} onClick={() => setActiveTab('account')}>←</button><h2 style={styles.screenTitle}>Help Center 🆘</h2></div>
           <div style={styles.content}>
             <div style={styles.formCard}>
               <input style={styles.input} type="text" placeholder="Subject" value={complaint.subject} onChange={(e) => setComplaint({ ...complaint, subject: e.target.value })} />
@@ -710,13 +696,9 @@ function RiderDashboard() {
         </div>
       )}
 
-      {/* SAFETY */}
       {activeTab === 'safety' && (
         <div style={styles.screen}>
-          <div style={styles.screenHeader}>
-            <button style={styles.backBtn} onClick={() => setActiveTab('account')}>←</button>
-            <h2 style={styles.screenTitle}>Safety 🛡️</h2>
-          </div>
+          <div style={styles.screenHeader}><button style={styles.backBtn} onClick={() => setActiveTab('account')}>←</button><h2 style={styles.screenTitle}>Safety 🛡️</h2></div>
           <div style={styles.content}>
             {['Always verify the driver and vehicle before boarding','Share your trip details with a trusted contact','Sit in the back seat when possible','Trust your instincts — cancel if you feel unsafe','Keep emergency contacts saved on your phone','Call 191 in case of emergency'].map((tip, i) => (
               <div key={i} style={styles.tipCard}><p style={styles.tipText}>🛡️ {tip}</p></div>
@@ -725,13 +707,9 @@ function RiderDashboard() {
         </div>
       )}
 
-      {/* PRIVACY */}
       {activeTab === 'privacy' && (
         <div style={styles.screen}>
-          <div style={styles.screenHeader}>
-            <button style={styles.backBtn} onClick={() => setActiveTab('account')}>←</button>
-            <h2 style={styles.screenTitle}>Privacy & Security 🔒</h2>
-          </div>
+          <div style={styles.screenHeader}><button style={styles.backBtn} onClick={() => setActiveTab('account')}>←</button><h2 style={styles.screenTitle}>Privacy & Security 🔒</h2></div>
           <div style={styles.content}>
             <div style={styles.formCard}>
               <p style={styles.infoRow}>🔒 Your data is encrypted end-to-end</p>
@@ -745,16 +723,13 @@ function RiderDashboard() {
         </div>
       )}
 
-      {/* Bottom Nav */}
       {['home','rides','messages','account','results'].includes(activeTab) && !showSearch && !(activeTrip && (tripStatus === 'accepted' || tripStatus === 'started')) && (
         <div style={styles.bottomNav}>
           {bottomTabs.map(tab => (
             <button key={tab.id} style={{...styles.navBtn, color: activeTab === tab.id ? '#34a853' : '#888'}} onClick={() => setActiveTab(tab.id)}>
               <span style={styles.navIcon}>{tab.icon}</span>
               <span style={styles.navLabel}>{tab.label}</span>
-              {tab.id === 'rides' && myBookings.filter(b => b.booking_status === 'accepted').length > 0 && (
-                <span style={styles.navBadge}>{myBookings.filter(b => b.booking_status === 'accepted').length}</span>
-              )}
+              {tab.id === 'messages' && conversations.length > 0 && <span style={styles.navBadge}></span>}
             </button>
           ))}
         </div>
@@ -780,7 +755,9 @@ const styles = {
   tripDriverRoute: { fontSize: '12px', color: '#888', margin: 0 },
   callBtn: { fontSize: '16px', textDecoration: 'none', padding: '6px 10px', backgroundColor: '#34a853', borderRadius: '8px', color: 'white' },
   tripFare: { fontSize: '18px', fontWeight: 'bold', color: '#1a73e8', margin: 0 },
-  voiceBtn: { padding: '10px', backgroundColor: '#f8f9fa', color: '#333', border: '1px solid #ddd', borderRadius: '10px', fontSize: '14px', cursor: 'pointer', textAlign: 'center' },
+  tripActionRow: { display: 'flex', gap: '8px' },
+  voiceBtn: { flex: 1, padding: '10px', backgroundColor: '#f8f9fa', color: '#333', border: '1px solid #ddd', borderRadius: '10px', fontSize: '13px', cursor: 'pointer', textAlign: 'center' },
+  msgDriverTripBtn: { flex: 2, padding: '10px', backgroundColor: '#1a73e8', color: 'white', border: 'none', borderRadius: '10px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', textAlign: 'center' },
   searchModal: { position: 'fixed', top: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '480px', height: '100vh', backgroundColor: 'white', zIndex: 5000, display: 'flex', flexDirection: 'column' },
   searchHeader: { padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid #f0f0f0' },
   closeSearch: { background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#333' },
@@ -848,15 +825,20 @@ const styles = {
   rideResultBottom: { display: 'flex', justifyContent: 'space-between', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f5f5f5' },
   rideSeats: { fontSize: '13px', color: '#666', margin: 0 },
   rideTime: { fontSize: '13px', color: '#666', margin: 0 },
-  callDriverBtn: { display: 'block', textAlign: 'center', padding: '10px', color: '#34a853', textDecoration: 'none', fontSize: '14px', fontWeight: 'bold', marginTop: '10px', border: '1px solid #34a853', borderRadius: '10px' },
-  bookNowBtn: { width: '100%', padding: '14px', backgroundColor: '#34a853', color: 'white', border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', marginTop: '10px' },
+  rideResultActions: { display: 'flex', gap: '8px', marginTop: '12px', flexWrap: 'wrap' },
+  callDriverBtn: { flex: 1, display: 'block', textAlign: 'center', padding: '10px', color: '#34a853', textDecoration: 'none', fontSize: '13px', fontWeight: 'bold', border: '1px solid #34a853', borderRadius: '10px' },
+  msgDriverBtn: { flex: 1, padding: '10px', backgroundColor: '#e8f0fe', color: '#1a73e8', border: '1px solid #1a73e8', borderRadius: '10px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' },
+  bookNowBtn: { flex: 2, padding: '12px', backgroundColor: '#34a853', color: 'white', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer' },
   tripCard: { backgroundColor: 'white', borderRadius: '16px', padding: '16px', marginBottom: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
-  tripHeader: { marginBottom: '12px' },
+  tripHeader: { marginBottom: '10px' },
   tripRoute: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' },
   tripRouteLine: { width: '1px', height: '12px', backgroundColor: '#ddd', marginLeft: '4px', marginBottom: '4px' },
   tripRouteText: { fontSize: '14px', fontWeight: '500', color: '#333', margin: 0 },
-  tripDetails: { display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' },
+  tripDetails: { display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' },
   tripDetail: { fontSize: '13px', color: '#666', margin: 0 },
+  tripBtnRow: { display: 'flex', gap: '8px', marginBottom: '10px' },
+  callBtnSmall: { flex: 1, padding: '8px', backgroundColor: '#e6f4ea', color: '#34a853', textDecoration: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', textAlign: 'center', border: '1px solid #34a853' },
+  msgBtnSmall: { flex: 2, padding: '8px', backgroundColor: '#e8f0fe', color: '#1a73e8', border: '1px solid #1a73e8', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' },
   tripFooter: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   statusBadge: { padding: '4px 12px', borderRadius: '20px', color: 'white', fontSize: '12px', fontWeight: 'bold' },
   tripActionBtns: { display: 'flex', gap: '8px' },
@@ -927,7 +909,7 @@ const styles = {
   navBtn: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', padding: '8px 4px', background: 'none', border: 'none', cursor: 'pointer', position: 'relative' },
   navIcon: { fontSize: '22px' },
   navLabel: { fontSize: '10px', fontWeight: '500' },
-  navBadge: { position: 'absolute', top: '4px', right: '20%', backgroundColor: '#ea4335', color: 'white', borderRadius: '10px', fontSize: '9px', padding: '2px 5px', fontWeight: 'bold' },
+  navBadge: { position: 'absolute', top: '4px', right: '20%', backgroundColor: '#ea4335', color: 'white', borderRadius: '50%', width: '8px', height: '8px' },
 };
 
 export default RiderDashboard;

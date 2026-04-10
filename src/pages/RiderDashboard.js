@@ -45,18 +45,50 @@ const speak = (text) => {
   }
 };
 
-function TripMap({ riderPos, pickupLat, pickupLng, dropoffLat, dropoffLng, status }) {
+function TripMap({ riderPos, pickupLat, pickupLng, dropoffLat, dropoffLng, status, onRouteInfo }) {
   const map = useMap();
-  useEffect(() => { if (riderPos) map.setView(riderPos, 14); }, [riderPos]);
+  const [routeCoords, setRouteCoords] = useState([]);
+
+  useEffect(() => {
+    if (riderPos) map.setView(riderPos, 14);
+  }, [riderPos]);
+
+  useEffect(() => {
+    const fetchRoute = async () => {
+      try {
+        const start = riderPos || [5.6037, -0.1870];
+        const end = status === 'accepted' ? [pickupLat, pickupLng] : [dropoffLat, dropoffLng];
+        if (!end || !end[0] || !end[1]) return;
+        const res = await fetch(
+          `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson`
+        );
+        const data = await res.json();
+        if (data.routes && data.routes[0]) {
+          const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+          setRouteCoords(coords);
+          const durationMins = Math.round(data.routes[0].duration / 60);
+          const distanceKm = (data.routes[0].distance / 1000).toFixed(1);
+          if (onRouteInfo) onRouteInfo({ durationMins, distanceKm });
+          if (coords.length > 1) {
+            map.fitBounds(coords, { padding: [50, 50] });
+          }
+        }
+      } catch (e) { console.error('Route error:', e); }
+    };
+    if (riderPos && ((pickupLat && pickupLng) || (dropoffLat && dropoffLng))) fetchRoute();
+  }, [riderPos, pickupLat, pickupLng, dropoffLat, dropoffLng, status]);
+
   const greenDot = L.divIcon({ html: `<div style="background:#34a853;width:18px;height:18px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)"></div>`, className: '', iconSize: [18,18], iconAnchor: [9,9] });
   const redDot = L.divIcon({ html: `<div style="background:#ea4335;width:18px;height:18px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)"></div>`, className: '', iconSize: [18,18], iconAnchor: [9,9] });
+
   return (
     <>
       {riderPos && <Marker position={riderPos} />}
       {pickupLat && pickupLng && <Marker position={[pickupLat, pickupLng]} icon={greenDot} />}
       {dropoffLat && dropoffLng && <Marker position={[dropoffLat, dropoffLng]} icon={redDot} />}
-      {riderPos && pickupLat && status === 'accepted' && <Polyline positions={[riderPos, [pickupLat, pickupLng]]} color="#34a853" weight={4} dashArray="8 4" />}
-      {pickupLat && dropoffLat && status === 'started' && <Polyline positions={[[pickupLat, pickupLng], [dropoffLat, dropoffLng]]} color="#1a73e8" weight={4} dashArray="8 4" />}
+      {routeCoords.length > 0 && (
+        <Polyline positions={routeCoords} color={status === 'accepted' ? '#34a853' : '#1a73e8'} weight={5} opacity={0.8} />
+      )}
     </>
   );
 }
@@ -86,6 +118,7 @@ function RiderDashboard() {
   const [activeTrip, setActiveTrip] = useState(null);
   const [prevTripStatus, setPrevTripStatus] = useState(null);
   const [riderPos, setRiderPos] = useState(null);
+  const [routeInfo, setRouteInfo] = useState(null);
 
   const userId = localStorage.getItem('userId');
   const userName = localStorage.getItem('userName');
@@ -149,13 +182,14 @@ function RiderDashboard() {
       setSearchResults(res.data.matches);
       setShowSearch(false);
       setActiveTab('results');
-      if (res.data.matches.length === 0) setMessage('No rides found. Try different locations.');
+      if (res.data.matches.length === 0) setMessage('No rides found. Try nearby stops like Kaneshie or Mallam Junction.');
+      setTimeout(() => setMessage(''), 4000);
     } catch (e) { setMessage('Error finding rides.'); }
   };
 
-  const handleBookRide = async (rideId) => {
+  const handleBookRide = async (ride) => {
     try {
-      await axios.post(`${API}/bookings`, { ride_id: rideId, passenger_id: userId });
+      await axios.post(`${API}/bookings`, { ride_id: ride.id, passenger_id: userId });
       setMessage('✅ Ride booked! Waiting for driver to accept...');
       fetchAll();
       setActiveTab('rides');
@@ -177,14 +211,10 @@ function RiderDashboard() {
         ride_id: selectedRide.ride_id || selectedRide.id,
         rater_id: parseInt(userId),
         rated_id: parseInt(selectedRide.driver_id),
-        rating,
-        comment,
-        rater_role: 'rider',
+        rating, comment, rater_role: 'rider',
       });
-      setMessage('✅ Rating submitted! Thank you.');
-      setSelectedRide(null);
-      setRating(5);
-      setComment('');
+      setMessage('✅ Rating submitted!');
+      setSelectedRide(null); setRating(5); setComment('');
       setTimeout(() => setMessage(''), 3000);
     } catch (e) { setMessage('❌ Error submitting rating.'); }
   };
@@ -224,8 +254,10 @@ function RiderDashboard() {
   };
 
   const fetchChatMessages = async (otherUserId) => {
-    const res = await axios.get(`${API}/messages/${userId}/${otherUserId}`);
-    setChatMessages(res.data.messages);
+    try {
+      const res = await axios.get(`${API}/messages/${userId}/${otherUserId}`);
+      setChatMessages(res.data.messages || []);
+    } catch (e) { console.error('fetchChatMessages error:', e); }
   };
 
   const sendMessage = async () => {
@@ -237,13 +269,19 @@ function RiderDashboard() {
         message: newMessage.trim(),
       });
       setNewMessage('');
-      fetchChatMessages(selectedChat.other_user_id);
+      await fetchChatMessages(selectedChat.other_user_id);
       fetchAll();
-    } catch (e) { setMessage('❌ Failed to send message.'); }
+    } catch (e) {
+      console.error('sendMessage error:', e);
+      setMessage('❌ Failed to send. Please try again.');
+      setTimeout(() => setMessage(''), 3000);
+    }
   };
 
   const openChatWithDriver = (driverId, driverName) => {
-    setSelectedChat({ other_user_id: driverId, other_user_name: driverName });
+    if (!driverId) { setMessage('❌ Driver info not available.'); setTimeout(() => setMessage(''), 3000); return; }
+    const chat = { other_user_id: String(driverId), other_user_name: driverName || 'Driver' };
+    setSelectedChat(chat);
     fetchChatMessages(driverId);
     setActiveTab('messages');
   };
@@ -268,14 +306,41 @@ function RiderDashboard() {
         <div style={styles.tripScreen}>
           <div style={styles.tripMap}>
             <MapContainer center={riderPos || [5.6037, -0.1870]} zoom={14} style={{ height: '100%', width: '100%' }} zoomControl={false}>
-              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-              <TripMap riderPos={riderPos} pickupLat={activeTrip.from_lat} pickupLng={activeTrip.from_lng} dropoffLat={activeTrip.to_lat} dropoffLng={activeTrip.to_lng} status={tripStatus} />
+              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="" />
+              <TripMap
+                riderPos={riderPos}
+                pickupLat={activeTrip.from_lat}
+                pickupLng={activeTrip.from_lng}
+                dropoffLat={activeTrip.to_lat}
+                dropoffLng={activeTrip.to_lng}
+                status={tripStatus}
+                onRouteInfo={setRouteInfo}
+              />
             </MapContainer>
           </div>
           <div style={styles.tripPanel}>
+            {/* ETA Bar */}
+            {routeInfo && (
+              <div style={styles.etaBar}>
+                <div style={styles.etaItem}>
+                  <p style={styles.etaNum}>{routeInfo.durationMins} min</p>
+                  <p style={styles.etaLbl}>{tripStatus === 'accepted' ? 'Pickup ETA' : 'Arrival ETA'}</p>
+                </div>
+                <div style={styles.etaDivider} />
+                <div style={styles.etaItem}>
+                  <p style={styles.etaNum}>{routeInfo.distanceKm} km</p>
+                  <p style={styles.etaLbl}>Distance</p>
+                </div>
+                <div style={styles.etaDivider} />
+                <div style={styles.etaItem}>
+                  <p style={styles.etaNum}>GH₵ {activeTrip.price}</p>
+                  <p style={styles.etaLbl}>Fare</p>
+                </div>
+              </div>
+            )}
             <div style={tripStatus === 'accepted' ? styles.tripStatusAccepted : styles.tripStatusStarted}>
               <p style={styles.tripStatusTitle}>{tripStatus === 'accepted' ? '🚗 Driver is on the way!' : '🚦 Trip in Progress'}</p>
-              <p style={styles.tripStatusSub}>{tripStatus === 'accepted' ? 'Heading to your pickup point' : `Heading to ${activeTrip.to_location}`}</p>
+              <p style={styles.tripStatusSub}>{tripStatus === 'accepted' ? `Picking you up at ${activeTrip.from_location}` : `Heading to ${activeTrip.to_location}`}</p>
             </div>
             <div style={styles.tripDriverRow}>
               {activeTrip.driver_pic ? <img src={activeTrip.driver_pic} alt="" style={styles.tripDriverAvatar} /> : <div style={styles.tripDriverAvatarPlaceholder}>{activeTrip.driver_name?.charAt(0)}</div>}
@@ -289,9 +354,12 @@ function RiderDashboard() {
               </div>
             </div>
             <div style={styles.tripActionRow}>
-              <button style={styles.voiceBtn} onClick={() => speak(tripStatus === 'accepted' ? `Your driver ${activeTrip.driver_name} is coming to pick you up at ${activeTrip.from_location}.` : `You are on your way to ${activeTrip.to_location}.`)}>
-                🔊 Voice
-              </button>
+              <button style={styles.voiceBtn} onClick={() => {
+                const msg = tripStatus === 'accepted'
+                  ? `Your driver ${activeTrip.driver_name} is coming to pick you up at ${activeTrip.from_location}. Estimated arrival in ${routeInfo?.durationMins || ''} minutes.`
+                  : `You are on your way to ${activeTrip.to_location}. Estimated arrival in ${routeInfo?.durationMins || ''} minutes.`;
+                speak(msg);
+              }}>🔊 Voice</button>
               <button style={styles.msgDriverTripBtn} onClick={() => openChatWithDriver(activeTrip.driver_id, activeTrip.driver_name)}>
                 💬 Message Driver
               </button>
@@ -310,18 +378,18 @@ function RiderDashboard() {
           <div style={styles.searchBody}>
             <div style={styles.searchInputGroup}>
               <div style={styles.searchDot} />
-              <input style={styles.searchInput} type="text" placeholder="From (e.g. Accra Central)" value={fromCity} onChange={(e) => setFromCity(e.target.value)} autoFocus />
+              <input style={styles.searchInput} type="text" placeholder="From (e.g. Accra, Kaneshie)" value={fromCity} onChange={(e) => setFromCity(e.target.value)} autoFocus />
             </div>
             <div style={styles.searchDivider} />
             <div style={styles.searchInputGroup}>
               <div style={{...styles.searchDot, backgroundColor: '#ea4335'}} />
-              <input style={styles.searchInput} type="text" placeholder="To (e.g. Tema)" value={toCity} onChange={(e) => setToCity(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleSearch()} />
+              <input style={styles.searchInput} type="text" placeholder="To (e.g. Kasoa, Tema)" value={toCity} onChange={(e) => setToCity(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleSearch()} />
             </div>
           </div>
           <button style={styles.searchBtn} onClick={handleSearch}>🔍 Find Available Rides</button>
           <div style={styles.suggestions}>
             <p style={styles.suggestTitle}>Popular Routes</p>
-            {[['Accra','Tema'],['Accra','Kasoa'],['Accra','Kumasi'],['Accra','Takoradi']].map(([from,to]) => (
+            {[['Accra','Kasoa'],['Kaneshie','Kasoa'],['Accra','Tema'],['Mallam Junction','Kasoa'],['Accra','Kumasi'],['Accra','Cape Coast']].map(([from,to]) => (
               <button key={from+to} style={styles.suggestItem} onClick={() => { setFromCity(from); setToCity(to); }}>
                 <span style={styles.suggestIcon}>🕐</span>
                 <span style={styles.suggestText}>{from} → {to}</span>
@@ -380,14 +448,14 @@ function RiderDashboard() {
         <div style={styles.screen}>
           <div style={styles.screenHeader}>
             <button style={styles.backBtn} onClick={() => { setActiveTab('home'); setSearchResults([]); }}>←</button>
-            <h2 style={styles.screenTitle}>Available Rides</h2>
+            <h2 style={styles.screenTitle}>Available Rides ({searchResults.length})</h2>
           </div>
           <div style={styles.content}>
             {searchResults.length === 0 ? (
               <div style={styles.emptyBox}>
                 <p style={styles.emptyIcon}>🔍</p>
                 <p style={styles.emptyText}>No rides found</p>
-                <p style={styles.emptyHint}>Try different locations or check back later</p>
+                <p style={styles.emptyHint}>Try searching from nearby stops e.g. Kaneshie, Mallam Junction</p>
                 <button style={styles.tryAgainBtn} onClick={() => { setShowSearch(true); setActiveTab('home'); }}>Try Again</button>
               </div>
             ) : searchResults.map(ride => (
@@ -409,6 +477,15 @@ function RiderDashboard() {
                   <div style={styles.routeDot} />
                   <p style={styles.routeText}>{ride.from_location}</p>
                 </div>
+                {ride.waypoints && ride.waypoints.split(',').filter(w => w.trim()).map((wp, i) => (
+                  <div key={i}>
+                    <div style={styles.routeLine} />
+                    <div style={styles.rideResultRoute}>
+                      <div style={{...styles.routeDot, backgroundColor: '#f9a825'}} />
+                      <p style={{...styles.routeText, color: '#888', fontSize: '13px'}}>📍 {wp.trim()}</p>
+                    </div>
+                  </div>
+                ))}
                 <div style={styles.routeLine} />
                 <div style={styles.rideResultRoute}>
                   <div style={{...styles.routeDot, backgroundColor: '#ea4335'}} />
@@ -421,7 +498,7 @@ function RiderDashboard() {
                 <div style={styles.rideResultActions}>
                   {ride.driver_phone && <a href={`tel:${ride.driver_phone}`} style={styles.callDriverBtn}>📞 Call</a>}
                   <button style={styles.msgDriverBtn} onClick={() => openChatWithDriver(ride.driver_id, ride.driver_name)}>💬 Message</button>
-                  <button style={styles.bookNowBtn} onClick={() => handleBookRide(ride.id)}>Book Now</button>
+                  <button style={styles.bookNowBtn} onClick={() => handleBookRide(ride)}>Book Now</button>
                 </div>
               </div>
             ))}
@@ -463,7 +540,9 @@ function RiderDashboard() {
                 </div>
                 <div style={styles.tripBtnRow}>
                   {booking.driver_phone && <a href={`tel:${booking.driver_phone}`} style={styles.callBtnSmall}>📞 Call</a>}
-                  <button style={styles.msgBtnSmall} onClick={() => openChatWithDriver(booking.driver_id, booking.driver_name)}>💬 Message Driver</button>
+                  <button style={styles.msgBtnSmall} onClick={() => openChatWithDriver(booking.driver_id, booking.driver_name)}>
+                    💬 Message Driver
+                  </button>
                 </div>
                 <div style={styles.tripFooter}>
                   <span style={{...styles.statusBadge,
@@ -474,29 +553,23 @@ function RiderDashboard() {
                       booking.booking_status === 'completed' ? '#34a853' : '#888'
                   }}>{booking.booking_status}</span>
                   <div style={styles.tripActionBtns}>
-                    {booking.booking_status === 'pending' && (
-                      <button style={styles.cancelBtn} onClick={() => handleCancelBooking(booking.id)}>Cancel</button>
-                    )}
-                    {booking.booking_status === 'completed' && (
-                      <button style={styles.rateBtn} onClick={() => setSelectedRide(booking)}>⭐ Rate Driver</button>
-                    )}
+                    {booking.booking_status === 'pending' && <button style={styles.cancelBtn} onClick={() => handleCancelBooking(booking.id)}>Cancel</button>}
+                    {booking.booking_status === 'completed' && <button style={styles.rateBtn} onClick={() => setSelectedRide(booking)}>⭐ Rate</button>}
                   </div>
                 </div>
               </div>
             ))}
-
             {selectedRide && (
               <div style={styles.ratingModal}>
                 <div style={styles.ratingCard}>
                   <p style={styles.ratingTitle}>Rate your driver</p>
                   <p style={styles.ratingDriver}>🚗 {selectedRide.driver_name}</p>
-                  <p style={styles.ratingRoute}>📍 {selectedRide.from_location} → {selectedRide.to_location}</p>
                   <div style={styles.starsRow}>
                     {[1,2,3,4,5].map(star => (
                       <button key={star} style={{...styles.star, fontSize: star <= rating ? '36px' : '28px', opacity: star <= rating ? 1 : 0.3}} onClick={() => setRating(star)}>⭐</button>
                     ))}
                   </div>
-                  <textarea style={styles.ratingInput} placeholder="Leave a comment about your driver..." value={comment} onChange={(e) => setComment(e.target.value)} rows={3} />
+                  <textarea style={styles.ratingInput} placeholder="Leave a comment..." value={comment} onChange={(e) => setComment(e.target.value)} rows={3} />
                   <div style={styles.ratingBtns}>
                     <button style={styles.cancelRatingBtn} onClick={() => setSelectedRide(null)}>Cancel</button>
                     <button style={styles.submitRatingBtn} onClick={handleSubmitRating}>Submit</button>
@@ -518,7 +591,7 @@ function RiderDashboard() {
                 <div style={styles.emptyBox}>
                   <p style={styles.emptyIcon}>💬</p>
                   <p style={styles.emptyText}>No messages yet</p>
-                  <p style={styles.emptyHint}>Book a ride to start chatting with drivers</p>
+                  <p style={styles.emptyHint}>Book a ride and tap 💬 Message to chat with your driver</p>
                 </div>
               ) : conversations.map(conv => (
                 <div key={conv.other_user_id} style={styles.convItem} onClick={() => { setSelectedChat(conv); fetchChatMessages(conv.other_user_id); }}>
@@ -541,13 +614,24 @@ function RiderDashboard() {
               <div style={styles.msgList}>
                 {chatMessages.length === 0 && <p style={{textAlign:'center',color:'#aaa',padding:'20px',fontSize:'13px'}}>No messages yet. Say hello! 👋</p>}
                 {chatMessages.map(msg => (
-                  <div key={msg.id} style={{...styles.msgBubble, alignSelf: String(msg.sender_id) === String(userId) ? 'flex-end' : 'flex-start', backgroundColor: String(msg.sender_id) === String(userId) ? '#34a853' : '#f1f3f4', color: String(msg.sender_id) === String(userId) ? 'white' : '#333'}}>
+                  <div key={msg.id} style={{
+                    ...styles.msgBubble,
+                    alignSelf: String(msg.sender_id) === String(userId) ? 'flex-end' : 'flex-start',
+                    backgroundColor: String(msg.sender_id) === String(userId) ? '#34a853' : '#f1f3f4',
+                    color: String(msg.sender_id) === String(userId) ? 'white' : '#333'
+                  }}>
                     <p style={{ margin: 0, fontSize: '14px' }}>{msg.message}</p>
                   </div>
                 ))}
               </div>
               <div style={styles.msgInputBar}>
-                <input style={styles.msgField} value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Type a message..." onKeyPress={(e) => e.key === 'Enter' && sendMessage()} />
+                <input
+                  style={styles.msgField}
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="Type a message..."
+                  onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                />
                 <button style={styles.sendBtn} onClick={sendMessage}>Send</button>
               </div>
             </div>
@@ -561,10 +645,7 @@ function RiderDashboard() {
           <div style={styles.accountHeader}>
             <div style={styles.accountProfile}>
               {profile.profile_picture ? <img src={profile.profile_picture} alt="" style={styles.accountAvatar} /> : <div style={styles.accountAvatarPlaceholder}>{userName?.charAt(0)}</div>}
-              <div style={{ flex: 1 }}>
-                <p style={styles.accountName}>{userName}</p>
-                <p style={styles.accountRole}>🧑 Rider</p>
-              </div>
+              <div style={{ flex: 1 }}><p style={styles.accountName}>{userName}</p><p style={styles.accountRole}>🧑 Rider</p></div>
               <label style={styles.editPhotoBtn}>📷<input type="file" accept="image/*" onChange={handlePictureUpload} style={{ display: 'none' }} /></label>
             </div>
             <div style={styles.walletCard}>
@@ -622,7 +703,6 @@ function RiderDashboard() {
             <div style={styles.walletBigCard}>
               <p style={styles.walletBigLabel}>Available Balance</p>
               <p style={styles.walletBigNum}>GH₵ {wallet.balance?.toFixed(2) || '0.00'}</p>
-              <p style={{fontSize:'13px',opacity:0.8,margin:0}}>Earn more by referring friends!</p>
             </div>
             <p style={styles.sectionLabel}>Transaction History</p>
             {!wallet.transactions || wallet.transactions.length === 0 ? <p style={styles.emptySmall}>No transactions yet.</p> : wallet.transactions.map(t => (
@@ -639,13 +719,12 @@ function RiderDashboard() {
         <div style={styles.screen}>
           <div style={styles.screenHeader}><button style={styles.backBtn} onClick={() => setActiveTab('account')}>←</button><h2 style={styles.screenTitle}>Rate a Driver ⭐</h2></div>
           <div style={styles.content}>
-            <p style={{fontSize:'13px',color:'#888',marginBottom:'16px'}}>Select a completed trip to rate the driver</p>
             {myBookings.filter(b => b.booking_status === 'completed').length === 0 ? (
               <div style={styles.emptyBox}><p style={styles.emptyIcon}>⭐</p><p style={styles.emptyText}>No completed trips yet</p></div>
             ) : myBookings.filter(b => b.booking_status === 'completed').map(booking => (
               <div key={booking.id} style={{...styles.tripCard, border: selectedRide?.id === booking.id ? '2px solid #34a853' : 'none', cursor: 'pointer'}} onClick={() => setSelectedRide(booking)}>
                 <p style={styles.cardRoute}>📍 {booking.from_location} → {booking.to_location}</p>
-                <p style={styles.cardDetail}>🚗 Driver: {booking.driver_name}</p>
+                <p style={styles.cardDetail}>🚗 {booking.driver_name}</p>
               </div>
             ))}
             {selectedRide && (
@@ -700,7 +779,7 @@ function RiderDashboard() {
         <div style={styles.screen}>
           <div style={styles.screenHeader}><button style={styles.backBtn} onClick={() => setActiveTab('account')}>←</button><h2 style={styles.screenTitle}>Safety 🛡️</h2></div>
           <div style={styles.content}>
-            {['Always verify the driver and vehicle before boarding','Share your trip details with a trusted contact','Sit in the back seat when possible','Trust your instincts — cancel if you feel unsafe','Keep emergency contacts saved on your phone','Call 191 in case of emergency'].map((tip, i) => (
+            {['Always verify the driver and vehicle before boarding','Share your trip details with a trusted contact','Sit in the back seat when possible','Trust your instincts — cancel if you feel unsafe','Keep emergency contacts saved','Call 191 in case of emergency'].map((tip, i) => (
               <div key={i} style={styles.tipCard}><p style={styles.tipText}>🛡️ {tip}</p></div>
             ))}
           </div>
@@ -714,7 +793,6 @@ function RiderDashboard() {
             <div style={styles.formCard}>
               <p style={styles.infoRow}>🔒 Your data is encrypted end-to-end</p>
               <p style={styles.infoRow}>🛡️ We never sell your personal information</p>
-              <p style={styles.infoRow}>📱 Location is only shared during active trips</p>
               <p style={styles.infoRow}>📧 Email: {profile.email}</p>
               <p style={styles.infoRow}>📅 Member since: {profile.created_at ? new Date(profile.created_at).toLocaleDateString() : ''}</p>
               <p style={styles.infoRow}>🔑 Referral Code: {profile.referral_code}</p>
@@ -729,7 +807,7 @@ function RiderDashboard() {
             <button key={tab.id} style={{...styles.navBtn, color: activeTab === tab.id ? '#34a853' : '#888'}} onClick={() => setActiveTab(tab.id)}>
               <span style={styles.navIcon}>{tab.icon}</span>
               <span style={styles.navLabel}>{tab.label}</span>
-              {tab.id === 'messages' && conversations.length > 0 && <span style={styles.navBadge}></span>}
+              {tab.id === 'messages' && conversations.length > 0 && <span style={styles.navDot} />}
             </button>
           ))}
         </div>
@@ -744,6 +822,11 @@ const styles = {
   tripScreen: { position: 'fixed', top: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '480px', height: '100vh', zIndex: 4000, display: 'flex', flexDirection: 'column' },
   tripMap: { flex: 1 },
   tripPanel: { backgroundColor: 'white', borderRadius: '24px 24px 0 0', padding: '16px', boxShadow: '0 -4px 20px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', gap: '10px' },
+  etaBar: { display: 'flex', justifyContent: 'space-around', alignItems: 'center', backgroundColor: '#1a1a2e', borderRadius: '12px', padding: '12px' },
+  etaItem: { textAlign: 'center' },
+  etaNum: { fontSize: '18px', fontWeight: 'bold', color: 'white', margin: '0 0 2px 0' },
+  etaLbl: { fontSize: '11px', color: 'rgba(255,255,255,0.7)', margin: 0 },
+  etaDivider: { width: '1px', height: '28px', backgroundColor: 'rgba(255,255,255,0.2)' },
   tripStatusAccepted: { backgroundColor: '#e6f4ea', borderRadius: '12px', padding: '12px', textAlign: 'center' },
   tripStatusStarted: { backgroundColor: '#e8f0fe', borderRadius: '12px', padding: '12px', textAlign: 'center' },
   tripStatusTitle: { fontSize: '16px', fontWeight: 'bold', color: '#333', margin: '0 0 4px 0' },
@@ -756,8 +839,8 @@ const styles = {
   callBtn: { fontSize: '16px', textDecoration: 'none', padding: '6px 10px', backgroundColor: '#34a853', borderRadius: '8px', color: 'white' },
   tripFare: { fontSize: '18px', fontWeight: 'bold', color: '#1a73e8', margin: 0 },
   tripActionRow: { display: 'flex', gap: '8px' },
-  voiceBtn: { flex: 1, padding: '10px', backgroundColor: '#f8f9fa', color: '#333', border: '1px solid #ddd', borderRadius: '10px', fontSize: '13px', cursor: 'pointer', textAlign: 'center' },
-  msgDriverTripBtn: { flex: 2, padding: '10px', backgroundColor: '#1a73e8', color: 'white', border: 'none', borderRadius: '10px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', textAlign: 'center' },
+  voiceBtn: { flex: 1, padding: '10px', backgroundColor: '#f8f9fa', color: '#333', border: '1px solid #ddd', borderRadius: '10px', fontSize: '13px', cursor: 'pointer' },
+  msgDriverTripBtn: { flex: 2, padding: '10px', backgroundColor: '#1a73e8', color: 'white', border: 'none', borderRadius: '10px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' },
   searchModal: { position: 'fixed', top: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '480px', height: '100vh', backgroundColor: 'white', zIndex: 5000, display: 'flex', flexDirection: 'column' },
   searchHeader: { padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid #f0f0f0' },
   closeSearch: { background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#333' },
@@ -768,7 +851,7 @@ const styles = {
   searchDivider: { height: '1px', backgroundColor: '#e0e0e0', marginLeft: '6px' },
   searchInput: { flex: 1, border: 'none', backgroundColor: 'transparent', fontSize: '16px', outline: 'none', color: '#333' },
   searchBtn: { margin: '0 16px', padding: '16px', backgroundColor: '#34a853', color: 'white', border: 'none', borderRadius: '14px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' },
-  suggestions: { padding: '16px 20px', flex: 1 },
+  suggestions: { padding: '16px 20px', flex: 1, overflowY: 'auto' },
   suggestTitle: { fontSize: '13px', color: '#888', margin: '0 0 12px 0', fontWeight: 'bold', textTransform: 'uppercase' },
   suggestItem: { display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '14px 0', background: 'none', border: 'none', cursor: 'pointer', borderBottom: '1px solid #f5f5f5' },
   suggestIcon: { fontSize: '18px' },
@@ -778,7 +861,7 @@ const styles = {
   homeTopBar: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 1000, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px' },
   hamburger: { width: '40px', height: '40px', backgroundColor: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', boxShadow: '0 2px 10px rgba(0,0,0,0.15)', cursor: 'pointer' },
   homeTitle: { fontSize: '16px', fontWeight: 'bold', color: '#333', backgroundColor: 'white', padding: '8px 16px', borderRadius: '20px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' },
-  homeAvatar: { width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', cursor: 'pointer', boxShadow: '0 2px 10px rgba(0,0,0,0.15)' },
+  homeAvatar: { width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', cursor: 'pointer' },
   homeAvatarPlaceholder: { width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#34a853', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 'bold', color: 'white', cursor: 'pointer' },
   homeBottomSheet: { position: 'absolute', bottom: '60px', left: 0, right: 0, backgroundColor: 'white', borderRadius: '24px 24px 0 0', padding: '20px', zIndex: 1000, boxShadow: '0 -4px 20px rgba(0,0,0,0.1)' },
   whereToBar: { width: '100%', display: 'flex', alignItems: 'center', gap: '12px', backgroundColor: '#f5f5f5', borderRadius: '14px', padding: '16px', border: 'none', cursor: 'pointer', marginBottom: '16px' },
@@ -825,7 +908,7 @@ const styles = {
   rideResultBottom: { display: 'flex', justifyContent: 'space-between', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f5f5f5' },
   rideSeats: { fontSize: '13px', color: '#666', margin: 0 },
   rideTime: { fontSize: '13px', color: '#666', margin: 0 },
-  rideResultActions: { display: 'flex', gap: '8px', marginTop: '12px', flexWrap: 'wrap' },
+  rideResultActions: { display: 'flex', gap: '8px', marginTop: '12px' },
   callDriverBtn: { flex: 1, display: 'block', textAlign: 'center', padding: '10px', color: '#34a853', textDecoration: 'none', fontSize: '13px', fontWeight: 'bold', border: '1px solid #34a853', borderRadius: '10px' },
   msgDriverBtn: { flex: 1, padding: '10px', backgroundColor: '#e8f0fe', color: '#1a73e8', border: '1px solid #1a73e8', borderRadius: '10px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' },
   bookNowBtn: { flex: 2, padding: '12px', backgroundColor: '#34a853', color: 'white', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer' },
@@ -847,8 +930,7 @@ const styles = {
   ratingModal: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', zIndex: 5000 },
   ratingCard: { backgroundColor: 'white', borderRadius: '24px 24px 0 0', padding: '28px', width: '100%' },
   ratingTitle: { fontSize: '18px', fontWeight: 'bold', color: '#333', margin: '0 0 4px 0' },
-  ratingDriver: { fontSize: '15px', fontWeight: 'bold', color: '#1a73e8', margin: '0 0 4px 0' },
-  ratingRoute: { fontSize: '13px', color: '#888', margin: '0 0 16px 0' },
+  ratingDriver: { fontSize: '15px', fontWeight: 'bold', color: '#1a73e8', margin: '0 0 16px 0' },
   starsRow: { display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '16px' },
   star: { background: 'none', border: 'none', cursor: 'pointer', padding: 0 },
   ratingInput: { width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #ddd', fontSize: '14px', resize: 'vertical', outline: 'none', marginBottom: '12px', boxSizing: 'border-box' },
@@ -892,7 +974,7 @@ const styles = {
   uploadIdBtn: { display: 'block', textAlign: 'center', padding: '12px', backgroundColor: '#f0fdf4', color: '#34a853', borderRadius: '10px', border: '2px dashed #34a853', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer' },
   walletBigCard: { background: 'linear-gradient(135deg, #34a853, #1e7e34)', borderRadius: '20px', padding: '28px', textAlign: 'center', color: 'white', marginBottom: '20px' },
   walletBigLabel: { fontSize: '13px', opacity: 0.85, margin: '0 0 8px 0' },
-  walletBigNum: { fontSize: '40px', fontWeight: 'bold', margin: '0 0 8px 0' },
+  walletBigNum: { fontSize: '40px', fontWeight: 'bold', margin: 0 },
   transCard: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'white', borderRadius: '12px', padding: '14px', marginBottom: '8px' },
   transDesc: { fontSize: '14px', color: '#333', margin: 0 },
   transAmt: { fontSize: '16px', fontWeight: 'bold', margin: 0 },
@@ -909,7 +991,7 @@ const styles = {
   navBtn: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', padding: '8px 4px', background: 'none', border: 'none', cursor: 'pointer', position: 'relative' },
   navIcon: { fontSize: '22px' },
   navLabel: { fontSize: '10px', fontWeight: '500' },
-  navBadge: { position: 'absolute', top: '4px', right: '20%', backgroundColor: '#ea4335', color: 'white', borderRadius: '50%', width: '8px', height: '8px' },
+  navDot: { position: 'absolute', top: '6px', right: '22%', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#ea4335' },
 };
 
 export default RiderDashboard;

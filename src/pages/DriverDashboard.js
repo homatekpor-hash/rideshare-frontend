@@ -120,7 +120,7 @@ function DriverDashboard() {
       () => setDriverPos([5.6037, -0.1870]),
       { enableHighAccuracy: true }
     );
-    const interval = setInterval(() => { fetchRequests(); fetchActiveTrip(); }, 5000);
+    const interval = setInterval(() => { fetchRequests(); fetchActiveTrip(); fetchAll(); }, 5000);
     return () => { clearInterval(interval); navigator.geolocation.clearWatch(watchId); };
   }, []);
 
@@ -178,11 +178,17 @@ function DriverDashboard() {
     } catch (e) {}
   };
 
+  const openChatWithRider = (riderId, riderName) => {
+    setSelectedChat({ other_user_id: riderId, other_user_name: riderName });
+    fetchChatMessages(riderId);
+    setActiveTab('messages');
+  };
+
   const handleAccept = async (bookingId, req) => {
     await axios.put(`${API}/bookings/${bookingId}/accept`);
     setMessage('✅ Booking accepted!');
     speak(`Booking accepted. Navigating to pick up ${req.passenger_name} at ${req.from_location}.`);
-    fetchRequests(); fetchActiveTrip();
+    fetchRequests(); fetchActiveTrip(); fetchAll();
     setTimeout(() => setMessage(''), 3000);
   };
 
@@ -217,8 +223,8 @@ function DriverDashboard() {
     if (!selectedPassenger) return;
     await axios.post(`${API}/ratings`, {
       ride_id: selectedPassenger.id,
-      rater_id: userId,
-      rated_id: selectedPassenger.passenger_id,
+      rater_id: parseInt(userId),
+      rated_id: parseInt(selectedPassenger.passenger_id),
       rating: passengerRating,
       comment: passengerComment,
       rater_role: 'driver',
@@ -321,10 +327,11 @@ function DriverDashboard() {
       await axios.post(`${API}/messages`, {
         sender_id: parseInt(userId),
         receiver_id: parseInt(selectedChat.other_user_id),
-        message: newMessage.trim()
+        message: newMessage.trim(),
       });
       setNewMessage('');
       fetchChatMessages(selectedChat.other_user_id);
+      fetchAll();
     } catch (e) { setMessage('❌ Failed to send message.'); }
   };
 
@@ -368,9 +375,7 @@ function DriverDashboard() {
           </div>
           <div style={styles.tripPanel}>
             <div style={styles.tripPassengerRow}>
-              {activeTrip.passenger_pic
-                ? <img src={activeTrip.passenger_pic} alt="Passenger" style={styles.tripAvatar} />
-                : <div style={styles.tripAvatarPlaceholder}>{activeTrip.passenger_name?.charAt(0)}</div>}
+              {activeTrip.passenger_pic ? <img src={activeTrip.passenger_pic} alt="" style={styles.tripAvatar} /> : <div style={styles.tripAvatarPlaceholder}>{activeTrip.passenger_name?.charAt(0)}</div>}
               <div style={{ flex: 1 }}>
                 <p style={styles.tripPassengerName}>{activeTrip.passenger_name}</p>
                 {activeTrip.passenger_phone && <a href={`tel:${activeTrip.passenger_phone}`} style={styles.tripPhone}>📞 {activeTrip.passenger_phone}</a>}
@@ -385,9 +390,14 @@ function DriverDashboard() {
             </div>
             {tripStatus === 'accepted' && <button style={styles.startTripBtn} onClick={handleStartTrip}>🚦 Arrived at Pickup — Start Trip</button>}
             {tripStatus === 'started' && <button style={styles.endTripBtn} onClick={handleEndTrip}>🏁 End Trip & Get Paid</button>}
-            <button style={styles.voiceBtn} onClick={() => speak(tripStatus === 'accepted' ? `Head to ${activeTrip.from_location} to pick up ${activeTrip.passenger_name}.` : `Navigate to ${activeTrip.to_location}.`)}>
-              🔊 Voice Instructions
-            </button>
+            <div style={styles.tripActionRow}>
+              <button style={styles.voiceBtn} onClick={() => speak(tripStatus === 'accepted' ? `Head to ${activeTrip.from_location} to pick up ${activeTrip.passenger_name}.` : `Navigate to ${activeTrip.to_location}.`)}>
+                🔊 Voice
+              </button>
+              <button style={styles.msgPassengerBtn} onClick={() => openChatWithRider(activeTrip.passenger_id, activeTrip.passenger_name)}>
+                💬 Message Passenger
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -417,6 +427,9 @@ function DriverDashboard() {
                 <button style={styles.declineBtn} onClick={() => handleDecline(req.id)}>✕ Decline</button>
                 <button style={styles.acceptBtn} onClick={() => handleAccept(req.id, req)}>✓ Accept</button>
               </div>
+              <button style={styles.msgRiderBtn} onClick={() => openChatWithRider(req.passenger_id, req.passenger_name)}>
+                💬 Message Rider Before Accepting
+              </button>
             </div>
           ))}
         </div>
@@ -538,7 +551,7 @@ function DriverDashboard() {
                 <p style={styles.chatName}>{selectedChat.other_user_name}</p>
               </div>
               <div style={styles.msgList}>
-                {chatMessages.length === 0 && <p style={{textAlign:'center',color:'#aaa',padding:'20px',fontSize:'13px'}}>No messages yet. Say hello!</p>}
+                {chatMessages.length === 0 && <p style={{textAlign:'center',color:'#aaa',padding:'20px',fontSize:'13px'}}>No messages yet. Say hello! 👋</p>}
                 {chatMessages.map(msg => (
                   <div key={msg.id} style={{...styles.msgBubble, alignSelf: String(msg.sender_id) === String(userId) ? 'flex-end' : 'flex-start', backgroundColor: String(msg.sender_id) === String(userId) ? '#1a73e8' : '#f1f3f4', color: String(msg.sender_id) === String(userId) ? 'white' : '#333'}}>
                     <p style={{ margin: 0, fontSize: '14px' }}>{msg.message}</p>
@@ -589,19 +602,19 @@ function DriverDashboard() {
           <div style={styles.content}>
             <p style={{fontSize:'13px',color:'#888',marginBottom:'16px'}}>Select a completed trip to rate the passenger</p>
             {completedTrips.length === 0 ? (
-              <div style={styles.emptyBox}>
-                <p style={styles.emptyIcon}>⭐</p>
-                <p style={styles.emptyText}>No completed trips yet</p>
-              </div>
+              <div style={styles.emptyBox}><p style={styles.emptyIcon}>⭐</p><p style={styles.emptyText}>No completed trips yet</p></div>
             ) : completedTrips.map(trip => (
               <div key={trip.id} style={{...styles.card, border: selectedPassenger?.id === trip.id ? '2px solid #34a853' : 'none', cursor: 'pointer'}} onClick={() => setSelectedPassenger(trip)}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  {trip.passenger_pic ? <img src={trip.passenger_pic} alt="" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#34a853', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold' }}>{trip.passenger_name?.charAt(0)}</div>}
+                  {trip.passenger_pic ? <img src={trip.passenger_pic} alt="" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#34a853', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', fontSize: '16px' }}>{trip.passenger_name?.charAt(0)}</div>}
                   <div>
                     <p style={styles.cardRoute}>👤 {trip.passenger_name}</p>
                     <p style={styles.cardDetail}>📍 {trip.from_location} → {trip.to_location}</p>
                   </div>
                 </div>
+                <button style={{...styles.msgRiderBtn, marginTop: '8px'}} onClick={(e) => { e.stopPropagation(); openChatWithRider(trip.passenger_id, trip.passenger_name); }}>
+                  💬 Message {trip.passenger_name}
+                </button>
               </div>
             ))}
             {selectedPassenger && (
@@ -623,23 +636,18 @@ function DriverDashboard() {
       {/* DOCUMENTS TAB */}
       {activeTab === 'documents' && (
         <div style={styles.screen}>
-          <div style={styles.screenHeader}>
-            <button style={styles.backBtn} onClick={() => setActiveTab('menu')}>←</button>
-            <h2 style={styles.screenTitle}>Documents 📄</h2>
-          </div>
+          <div style={styles.screenHeader}><button style={styles.backBtn} onClick={() => setActiveTab('menu')}>←</button><h2 style={styles.screenTitle}>Documents 📄</h2></div>
           <div style={styles.content}>
             <div style={{...styles.verifyBanner, backgroundColor: documents.verified === 1 ? '#e6f4ea' : documents.face_photo ? '#fff8e1' : '#fce8e6'}}>
               <p style={{...styles.verifyText, color: documents.verified === 1 ? '#34a853' : documents.face_photo ? '#f9a825' : '#ea4335'}}>
                 {documents.verified === 1 ? '✅ Fully Verified!' : documents.face_photo ? '⏳ Awaiting admin review...' : '❌ Upload all documents to get verified'}
               </p>
             </div>
-            {[{key:'face_photo',title:'📸 Face Selfie',capture:'user'}].map(doc => (
-              <div key={doc.key} style={styles.docCard}>
-                <p style={styles.docTitle}>{doc.title}</p>
-                {documents[doc.key] ? <img src={documents[doc.key]} alt="" style={styles.docImg} /> : <div style={styles.docEmpty}>No photo</div>}
-                <label style={styles.docUploadBtn}>{documents[doc.key] ? 'Retake' : 'Upload'}<input type="file" accept="image/*" capture={doc.capture} onChange={(e) => handleDocumentUpload(doc.key, e)} style={{ display: 'none' }} /></label>
-              </div>
-            ))}
+            <div style={styles.docCard}>
+              <p style={styles.docTitle}>📸 Face Selfie</p>
+              {documents.face_photo ? <img src={documents.face_photo} alt="" style={styles.docImg} /> : <div style={styles.docEmpty}>No photo</div>}
+              <label style={styles.docUploadBtn}>{documents.face_photo ? 'Retake' : 'Upload'}<input type="file" accept="image/*" capture="user" onChange={(e) => handleDocumentUpload('face_photo', e)} style={{ display: 'none' }} /></label>
+            </div>
             {[{frontKey:'license_front',backKey:'license_back',title:"🪪 Driver's License"},{frontKey:'national_id_front',backKey:'national_id_back',title:'🇬🇭 Ghana Card'}].map(doc => (
               <div key={doc.frontKey} style={styles.docCard}>
                 <p style={styles.docTitle}>{doc.title}</p>
@@ -737,7 +745,7 @@ function DriverDashboard() {
               <span style={styles.navIcon}>{tab.icon}</span>
               <span style={styles.navLabel}>{tab.label}</span>
               {tab.id === 'home' && requests.length > 0 && <span style={styles.navBadge}>{requests.length}</span>}
-              {tab.id === 'messages' && conversations.length > 0 && <span style={{...styles.navBadge, right: '10%'}}></span>}
+              {tab.id === 'messages' && conversations.length > 0 && <span style={{...styles.navBadge, right: '10%', width: '8px', height: '8px', padding: 0, borderRadius: '50%'}}></span>}
             </button>
           ))}
         </div>
@@ -763,7 +771,9 @@ const styles = {
   tripLocation: { fontSize: '15px', fontWeight: 'bold', color: '#333', margin: 0 },
   startTripBtn: { padding: '16px', backgroundColor: '#34a853', color: 'white', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: 'bold', cursor: 'pointer' },
   endTripBtn: { padding: '16px', backgroundColor: '#1a73e8', color: 'white', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: 'bold', cursor: 'pointer' },
-  voiceBtn: { padding: '12px', backgroundColor: '#f8f9fa', color: '#333', border: '1px solid #ddd', borderRadius: '12px', fontSize: '14px', cursor: 'pointer' },
+  tripActionRow: { display: 'flex', gap: '8px' },
+  voiceBtn: { flex: 1, padding: '12px', backgroundColor: '#f8f9fa', color: '#333', border: '1px solid #ddd', borderRadius: '12px', fontSize: '13px', cursor: 'pointer' },
+  msgPassengerBtn: { flex: 2, padding: '12px', backgroundColor: '#1a73e8', color: 'white', border: 'none', borderRadius: '12px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' },
   requestsPopup: { position: 'fixed', top: '80px', left: '50%', transform: 'translateX(-50%)', width: '92%', maxWidth: '440px', zIndex: 3000, display: 'flex', flexDirection: 'column', gap: '10px' },
   requestsTitle: { backgroundColor: '#1a1a2e', color: 'white', padding: '10px 16px', borderRadius: '10px', fontSize: '14px', fontWeight: 'bold', margin: 0, textAlign: 'center' },
   requestCard: { backgroundColor: 'white', borderRadius: '16px', padding: '16px', boxShadow: '0 8px 32px rgba(0,0,0,0.25)', border: '2px solid #34a853' },
@@ -778,9 +788,10 @@ const styles = {
   requestFrom: { fontSize: '13px', color: '#333', margin: '0 0 4px 0', fontWeight: '500' },
   requestTo: { fontSize: '13px', color: '#333', margin: '0 0 4px 0', fontWeight: '500' },
   requestTime: { fontSize: '12px', color: '#888', margin: 0 },
-  requestBtns: { display: 'flex', gap: '10px' },
+  requestBtns: { display: 'flex', gap: '10px', marginBottom: '8px' },
   declineBtn: { flex: 1, padding: '12px', backgroundColor: '#fce8e6', color: '#ea4335', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 'bold', cursor: 'pointer' },
   acceptBtn: { flex: 2, padding: '12px', backgroundColor: '#34a853', color: 'white', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 'bold', cursor: 'pointer' },
+  msgRiderBtn: { width: '100%', padding: '10px', backgroundColor: '#e8f0fe', color: '#1a73e8', border: '1px solid #1a73e8', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' },
   homeScreen: { flex: 1, position: 'relative', height: '100vh' },
   fullMap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   mapOverlay: { position: 'absolute', top: '80px', left: '20px', right: '20px', zIndex: 500 },

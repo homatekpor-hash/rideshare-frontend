@@ -178,9 +178,9 @@ function DriverDashboard() {
     } catch (e) {}
   };
 
-  const openChatWithRider = (riderId, riderName) => {
-    setSelectedChat({ other_user_id: riderId, other_user_name: riderName });
-    fetchChatMessages(riderId);
+  const openChatWithPassenger = (passengerId, passengerName) => {
+    setSelectedChat({ other_user_id: passengerId, other_user_name: passengerName });
+    fetchChatMessages(passengerId);
     setActiveTab('messages');
   };
 
@@ -223,8 +223,8 @@ function DriverDashboard() {
     if (!selectedPassenger) return;
     await axios.post(`${API}/ratings`, {
       ride_id: selectedPassenger.id,
-      rater_id: parseInt(userId),
-      rated_id: parseInt(selectedPassenger.passenger_id),
+      rater_id: userId,
+      rated_id: selectedPassenger.passenger_id,
       rating: passengerRating,
       comment: passengerComment,
       rater_role: 'driver',
@@ -327,7 +327,7 @@ function DriverDashboard() {
       await axios.post(`${API}/messages`, {
         sender_id: parseInt(userId),
         receiver_id: parseInt(selectedChat.other_user_id),
-        message: newMessage.trim(),
+        message: newMessage.trim()
       });
       setNewMessage('');
       fetchChatMessages(selectedChat.other_user_id);
@@ -394,7 +394,7 @@ function DriverDashboard() {
               <button style={styles.voiceBtn} onClick={() => speak(tripStatus === 'accepted' ? `Head to ${activeTrip.from_location} to pick up ${activeTrip.passenger_name}.` : `Navigate to ${activeTrip.to_location}.`)}>
                 🔊 Voice
               </button>
-              <button style={styles.msgPassengerBtn} onClick={() => openChatWithRider(activeTrip.passenger_id, activeTrip.passenger_name)}>
+              <button style={styles.msgPassengerBtn} onClick={() => openChatWithPassenger(activeTrip.passenger_id, activeTrip.passenger_name)}>
                 💬 Message Passenger
               </button>
             </div>
@@ -427,7 +427,7 @@ function DriverDashboard() {
                 <button style={styles.declineBtn} onClick={() => handleDecline(req.id)}>✕ Decline</button>
                 <button style={styles.acceptBtn} onClick={() => handleAccept(req.id, req)}>✓ Accept</button>
               </div>
-              <button style={styles.msgRiderBtn} onClick={() => openChatWithRider(req.passenger_id, req.passenger_name)}>
+              <button style={styles.msgRiderBtn} onClick={() => openChatWithPassenger(req.passenger_id, req.passenger_name)}>
                 💬 Message Rider Before Accepting
               </button>
             </div>
@@ -606,15 +606,12 @@ function DriverDashboard() {
             ) : completedTrips.map(trip => (
               <div key={trip.id} style={{...styles.card, border: selectedPassenger?.id === trip.id ? '2px solid #34a853' : 'none', cursor: 'pointer'}} onClick={() => setSelectedPassenger(trip)}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  {trip.passenger_pic ? <img src={trip.passenger_pic} alt="" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#34a853', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', fontSize: '16px' }}>{trip.passenger_name?.charAt(0)}</div>}
+                  {trip.passenger_pic ? <img src={trip.passenger_pic} alt="" style={{ width:'40px', height:'40px', borderRadius:'50%', objectFit:'cover' }} /> : <div style={{ width:'40px', height:'40px', borderRadius:'50%', backgroundColor:'#34a853', display:'flex', alignItems:'center', justifyContent:'center', color:'white', fontWeight:'bold' }}>{trip.passenger_name?.charAt(0)}</div>}
                   <div>
                     <p style={styles.cardRoute}>👤 {trip.passenger_name}</p>
                     <p style={styles.cardDetail}>📍 {trip.from_location} → {trip.to_location}</p>
                   </div>
                 </div>
-                <button style={{...styles.msgRiderBtn, marginTop: '8px'}} onClick={(e) => { e.stopPropagation(); openChatWithRider(trip.passenger_id, trip.passenger_name); }}>
-                  💬 Message {trip.passenger_name}
-                </button>
               </div>
             ))}
             {selectedPassenger && (
@@ -745,7 +742,7 @@ function DriverDashboard() {
               <span style={styles.navIcon}>{tab.icon}</span>
               <span style={styles.navLabel}>{tab.label}</span>
               {tab.id === 'home' && requests.length > 0 && <span style={styles.navBadge}>{requests.length}</span>}
-              {tab.id === 'messages' && conversations.length > 0 && <span style={{...styles.navBadge, right: '10%', width: '8px', height: '8px', padding: 0, borderRadius: '50%'}}></span>}
+              {tab.id === 'messages' && conversations.length > 0 && <span style={{...styles.navBadge, right:'10%', width:'8px', height:'8px', borderRadius:'50%'}}></span>}
             </button>
           ))}
         </div>
@@ -772,8 +769,8 @@ const styles = {
   startTripBtn: { padding: '16px', backgroundColor: '#34a853', color: 'white', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: 'bold', cursor: 'pointer' },
   endTripBtn: { padding: '16px', backgroundColor: '#1a73e8', color: 'white', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: 'bold', cursor: 'pointer' },
   tripActionRow: { display: 'flex', gap: '8px' },
-  voiceBtn: { flex: 1, padding: '12px', backgroundColor: '#f8f9fa', color: '#333', border: '1px solid #ddd', borderRadius: '12px', fontSize: '13px', cursor: 'pointer' },
-  msgPassengerBtn: { flex: 2, padding: '12px', backgroundColor: '#1a73e8', color: 'white', border: 'none', borderRadius: '12px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' },
+  voiceBtn: { flex: 1, padding: '10px', backgroundColor: '#f8f9fa', color: '#333', border: '1px solid #ddd', borderRadius: '10px', fontSize: '13px', cursor: 'pointer' },
+  msgPassengerBtn: { flex: 2, padding: '10px', backgroundColor: '#1a73e8', color: 'white', border: 'none', borderRadius: '10px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' },
   requestsPopup: { position: 'fixed', top: '80px', left: '50%', transform: 'translateX(-50%)', width: '92%', maxWidth: '440px', zIndex: 3000, display: 'flex', flexDirection: 'column', gap: '10px' },
   requestsTitle: { backgroundColor: '#1a1a2e', color: 'white', padding: '10px 16px', borderRadius: '10px', fontSize: '14px', fontWeight: 'bold', margin: 0, textAlign: 'center' },
   requestCard: { backgroundColor: 'white', borderRadius: '16px', padding: '16px', boxShadow: '0 8px 32px rgba(0,0,0,0.25)', border: '2px solid #34a853' },
@@ -791,7 +788,7 @@ const styles = {
   requestBtns: { display: 'flex', gap: '10px', marginBottom: '8px' },
   declineBtn: { flex: 1, padding: '12px', backgroundColor: '#fce8e6', color: '#ea4335', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 'bold', cursor: 'pointer' },
   acceptBtn: { flex: 2, padding: '12px', backgroundColor: '#34a853', color: 'white', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 'bold', cursor: 'pointer' },
-  msgRiderBtn: { width: '100%', padding: '10px', backgroundColor: '#e8f0fe', color: '#1a73e8', border: '1px solid #1a73e8', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' },
+  msgRiderBtn: { width: '100%', padding: '10px', backgroundColor: '#e8f0fe', color: '#1a73e8', border: '1px solid #1a73e8', borderRadius: '10px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' },
   homeScreen: { flex: 1, position: 'relative', height: '100vh' },
   fullMap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   mapOverlay: { position: 'absolute', top: '80px', left: '20px', right: '20px', zIndex: 500 },

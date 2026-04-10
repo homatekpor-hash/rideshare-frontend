@@ -55,24 +55,40 @@ const speak = (text) => {
   }
 };
 
-function NavigationMap({ driverPos, targetLat, targetLng, color }) {
+function NavigationMap({ driverPos, targetLat, targetLng, color, onRouteInfo }) {
   const map = useMap();
+  const [routeCoords, setRouteCoords] = useState([]);
+
   useEffect(() => {
-    if (driverPos && targetLat && targetLng) {
-      map.fitBounds([[driverPos[0], driverPos[1]], [targetLat, targetLng]], { padding: [40, 40] });
-    }
+    const fetchRoute = async () => {
+      try {
+        const start = driverPos || [5.6037, -0.1870];
+        if (!targetLat || !targetLng) return;
+        const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${targetLng},${targetLat}?overview=full&geometries=geojson`);
+        const data = await res.json();
+        if (data.routes && data.routes[0]) {
+          const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+          setRouteCoords(coords);
+          const durationMins = Math.round(data.routes[0].duration / 60);
+          const distanceKm = (data.routes[0].distance / 1000).toFixed(1);
+          if (onRouteInfo) onRouteInfo({ durationMins, distanceKm });
+          if (coords.length > 1) map.fitBounds(coords, { padding: [50, 50] });
+        }
+      } catch (e) { console.error('Route error:', e); }
+    };
+    if (driverPos && targetLat && targetLng) fetchRoute();
   }, [driverPos, targetLat, targetLng]);
+
   const targetIcon = L.divIcon({
     html: `<div style="background:${color};width:20px;height:20px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)"></div>`,
     className: '', iconSize: [20, 20], iconAnchor: [10, 10],
   });
+
   return (
     <>
       {driverPos && <Marker position={driverPos} />}
       {targetLat && targetLng && <Marker position={[targetLat, targetLng]} icon={targetIcon} />}
-      {driverPos && targetLat && targetLng && (
-        <Polyline positions={[driverPos, [targetLat, targetLng]]} color={color} weight={4} dashArray="8 4" />
-      )}
+      {routeCoords.length > 0 && <Polyline positions={routeCoords} color={color} weight={5} opacity={0.8} />}
     </>
   );
 }
@@ -88,6 +104,9 @@ function DriverDashboard() {
   const [message, setMessage] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [vehicleNumber, setVehicleNumber] = useState('');
+  const [vehicleModel, setVehicleModel] = useState('');
+  const [vehicleColor, setVehicleColor] = useState('');
   const [complaint, setComplaint] = useState({ subject: '', message: '' });
   const [referrals, setReferrals] = useState([]);
   const [documents, setDocuments] = useState({});
@@ -103,6 +122,7 @@ function DriverDashboard() {
   const [selectedPassenger, setSelectedPassenger] = useState(null);
   const [passengerRating, setPassengerRating] = useState(5);
   const [passengerComment, setPassengerComment] = useState('');
+  const [routeInfo, setRouteInfo] = useState(null);
   const prevRequestCount = useRef(0);
 
   const userId = localStorage.getItem('userId');
@@ -147,6 +167,9 @@ function DriverDashboard() {
       setProfile(profileRes.data.user);
       setName(profileRes.data.user.name);
       setPhone(profileRes.data.user.phone || '');
+      setVehicleNumber(profileRes.data.user.vehicle_number || '');
+      setVehicleModel(profileRes.data.user.vehicle_model || '');
+      setVehicleColor(profileRes.data.user.vehicle_color || '');
       setMyRides(ridesRes.data.rides);
       setEarnings(earningsRes.data);
       setNotifications(notifRes.data.notifications);
@@ -179,7 +202,8 @@ function DriverDashboard() {
   };
 
   const openChatWithPassenger = (passengerId, passengerName) => {
-    setSelectedChat({ other_user_id: passengerId, other_user_name: passengerName });
+    if (!passengerId) return;
+    setSelectedChat({ other_user_id: String(passengerId), other_user_name: passengerName || 'Passenger' });
     fetchChatMessages(passengerId);
     setActiveTab('messages');
   };
@@ -230,9 +254,7 @@ function DriverDashboard() {
       rater_role: 'driver',
     });
     setMessage('✅ Passenger rated!');
-    setSelectedPassenger(null);
-    setPassengerRating(5);
-    setPassengerComment('');
+    setSelectedPassenger(null); setPassengerRating(5); setPassengerComment('');
     setTimeout(() => setMessage(''), 3000);
   };
 
@@ -252,7 +274,12 @@ function DriverDashboard() {
   };
 
   const handleUpdateProfile = async () => {
-    await axios.put(`${API}/users/${userId}/profile`, { name, phone });
+    await axios.put(`${API}/users/${userId}/profile`, {
+      name, phone,
+      vehicle_number: vehicleNumber,
+      vehicle_model: vehicleModel,
+      vehicle_color: vehicleColor,
+    });
     setMessage('✅ Profile updated!');
     setTimeout(() => setMessage(''), 3000);
   };
@@ -317,8 +344,10 @@ function DriverDashboard() {
   };
 
   const fetchChatMessages = async (otherUserId) => {
-    const res = await axios.get(`${API}/messages/${userId}/${otherUserId}`);
-    setChatMessages(res.data.messages);
+    try {
+      const res = await axios.get(`${API}/messages/${userId}/${otherUserId}`);
+      setChatMessages(res.data.messages || []);
+    } catch (e) { console.error(e); }
   };
 
   const sendMessage = async () => {
@@ -370,10 +399,29 @@ function DriverDashboard() {
                 targetLat={tripStatus === 'accepted' ? activeTrip.from_lat : activeTrip.to_lat}
                 targetLng={tripStatus === 'accepted' ? activeTrip.from_lng : activeTrip.to_lng}
                 color={tripStatus === 'accepted' ? '#34a853' : '#1a73e8'}
+                onRouteInfo={setRouteInfo}
               />
             </MapContainer>
           </div>
           <div style={styles.tripPanel}>
+            {routeInfo && (
+              <div style={styles.etaBar}>
+                <div style={styles.etaItem}>
+                  <p style={styles.etaNum}>{routeInfo.durationMins} min</p>
+                  <p style={styles.etaLbl}>{tripStatus === 'accepted' ? 'To Pickup' : 'To Dropoff'}</p>
+                </div>
+                <div style={styles.etaDivider} />
+                <div style={styles.etaItem}>
+                  <p style={styles.etaNum}>{routeInfo.distanceKm} km</p>
+                  <p style={styles.etaLbl}>Distance</p>
+                </div>
+                <div style={styles.etaDivider} />
+                <div style={styles.etaItem}>
+                  <p style={styles.etaNum}>GH₵ {activeTrip.price}</p>
+                  <p style={styles.etaLbl}>Fare</p>
+                </div>
+              </div>
+            )}
             <div style={styles.tripPassengerRow}>
               {activeTrip.passenger_pic ? <img src={activeTrip.passenger_pic} alt="" style={styles.tripAvatar} /> : <div style={styles.tripAvatarPlaceholder}>{activeTrip.passenger_name?.charAt(0)}</div>}
               <div style={{ flex: 1 }}>
@@ -391,7 +439,7 @@ function DriverDashboard() {
             {tripStatus === 'accepted' && <button style={styles.startTripBtn} onClick={handleStartTrip}>🚦 Arrived at Pickup — Start Trip</button>}
             {tripStatus === 'started' && <button style={styles.endTripBtn} onClick={handleEndTrip}>🏁 End Trip & Get Paid</button>}
             <div style={styles.tripActionRow}>
-              <button style={styles.voiceBtn} onClick={() => speak(tripStatus === 'accepted' ? `Head to ${activeTrip.from_location} to pick up ${activeTrip.passenger_name}.` : `Navigate to ${activeTrip.to_location}.`)}>
+              <button style={styles.voiceBtn} onClick={() => speak(tripStatus === 'accepted' ? `Head to ${activeTrip.from_location} to pick up ${activeTrip.passenger_name}. ${routeInfo ? `Estimated ${routeInfo.durationMins} minutes.` : ''}` : `Navigate to ${activeTrip.to_location}. ${routeInfo ? `Estimated ${routeInfo.durationMins} minutes.` : ''}`)}>
                 🔊 Voice
               </button>
               <button style={styles.msgPassengerBtn} onClick={() => openChatWithPassenger(activeTrip.passenger_id, activeTrip.passenger_name)}>
@@ -455,7 +503,10 @@ function DriverDashboard() {
           <div style={styles.topBar}>
             <div style={styles.topLeft}>
               {profile.profile_picture ? <img src={profile.profile_picture} alt="" style={styles.topAvatar} /> : <div style={styles.topAvatarPlaceholder}>{userName?.charAt(0)}</div>}
-              <div><p style={styles.topName}>{userName}</p><p style={styles.topRole}>🚗 Driver</p></div>
+              <div>
+                <p style={styles.topName}>{userName}</p>
+                <p style={styles.topRole}>🚗 {profile.vehicle_number || 'Driver'}</p>
+              </div>
             </div>
             <div style={{...styles.statusPill, backgroundColor: isOnline ? '#34a853' : '#666'}}>{isOnline ? '🟢 Online' : '⚫ Offline'}</div>
           </div>
@@ -527,11 +578,7 @@ function DriverDashboard() {
           {!selectedChat ? (
             <div style={styles.content}>
               {conversations.length === 0 ? (
-                <div style={styles.emptyBox}>
-                  <p style={styles.emptyIcon}>💬</p>
-                  <p style={styles.emptyText}>No conversations yet</p>
-                  <p style={styles.emptyHint}>Messages from riders will appear here</p>
-                </div>
+                <div style={styles.emptyBox}><p style={styles.emptyIcon}>💬</p><p style={styles.emptyText}>No conversations yet</p><p style={styles.emptyHint}>Messages from riders will appear here</p></div>
               ) : conversations.map(conv => (
                 <div key={conv.other_user_id} style={styles.convItem} onClick={() => { setSelectedChat(conv); fetchChatMessages(conv.other_user_id); }}>
                   <div style={styles.convAvatar}>{conv.other_user_name?.charAt(0)}</div>
@@ -573,7 +620,11 @@ function DriverDashboard() {
           <div style={styles.menuHeader}>
             <div style={styles.menuProfile}>
               {profile.profile_picture ? <img src={profile.profile_picture} alt="" style={styles.menuAvatar} /> : <div style={styles.menuAvatarPlaceholder}>{userName?.charAt(0)}</div>}
-              <div><p style={styles.menuName}>{userName}</p><p style={styles.menuRole}>🚗 Driver | ⭐ {ratings.avgRating || '0'}</p></div>
+              <div>
+                <p style={styles.menuName}>{userName}</p>
+                <p style={styles.menuRole}>🚗 Driver | ⭐ {ratings.avgRating || '0'}</p>
+                {profile.vehicle_number && <p style={styles.menuVehicle}>🚙 {profile.vehicle_color} {profile.vehicle_model} | {profile.vehicle_number}</p>}
+              </div>
             </div>
           </div>
           <div style={styles.content}>
@@ -595,22 +646,15 @@ function DriverDashboard() {
       {/* RATE PASSENGER TAB */}
       {activeTab === 'rate-passenger' && (
         <div style={styles.screen}>
-          <div style={styles.screenHeader}>
-            <button style={styles.backBtn} onClick={() => setActiveTab('menu')}>←</button>
-            <h2 style={styles.screenTitle}>Rate a Passenger ⭐</h2>
-          </div>
+          <div style={styles.screenHeader}><button style={styles.backBtn} onClick={() => setActiveTab('menu')}>←</button><h2 style={styles.screenTitle}>Rate a Passenger ⭐</h2></div>
           <div style={styles.content}>
-            <p style={{fontSize:'13px',color:'#888',marginBottom:'16px'}}>Select a completed trip to rate the passenger</p>
             {completedTrips.length === 0 ? (
               <div style={styles.emptyBox}><p style={styles.emptyIcon}>⭐</p><p style={styles.emptyText}>No completed trips yet</p></div>
             ) : completedTrips.map(trip => (
               <div key={trip.id} style={{...styles.card, border: selectedPassenger?.id === trip.id ? '2px solid #34a853' : 'none', cursor: 'pointer'}} onClick={() => setSelectedPassenger(trip)}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   {trip.passenger_pic ? <img src={trip.passenger_pic} alt="" style={{ width:'40px', height:'40px', borderRadius:'50%', objectFit:'cover' }} /> : <div style={{ width:'40px', height:'40px', borderRadius:'50%', backgroundColor:'#34a853', display:'flex', alignItems:'center', justifyContent:'center', color:'white', fontWeight:'bold' }}>{trip.passenger_name?.charAt(0)}</div>}
-                  <div>
-                    <p style={styles.cardRoute}>👤 {trip.passenger_name}</p>
-                    <p style={styles.cardDetail}>📍 {trip.from_location} → {trip.to_location}</p>
-                  </div>
+                  <div><p style={styles.cardRoute}>👤 {trip.passenger_name}</p><p style={styles.cardDetail}>📍 {trip.from_location} → {trip.to_location}</p></div>
                 </div>
               </div>
             ))}
@@ -622,7 +666,7 @@ function DriverDashboard() {
                     <button key={star} style={{...styles.star, fontSize: star <= passengerRating ? '36px' : '28px', opacity: star <= passengerRating ? 1 : 0.3}} onClick={() => setPassengerRating(star)}>⭐</button>
                   ))}
                 </div>
-                <textarea style={styles.ratingInput} placeholder="Leave feedback (optional)..." value={passengerComment} onChange={(e) => setPassengerComment(e.target.value)} rows={3} />
+                <textarea style={styles.ratingInput} placeholder="Leave feedback..." value={passengerComment} onChange={(e) => setPassengerComment(e.target.value)} rows={3} />
                 <button style={styles.submitBtn} onClick={handleSubmitPassengerRating}>Submit Rating</button>
               </div>
             )}
@@ -685,10 +729,7 @@ function DriverDashboard() {
               <p style={styles.referralNote}>Earn GH₵ 5 for each friend who joins!</p>
             </div>
             {referrals.length === 0 ? <p style={styles.emptyText}>No referrals yet.</p> : referrals.map(r => (
-              <div key={r.id} style={styles.card}>
-                <p style={styles.cardRoute}>👤 {r.referred_name}</p>
-                <p style={styles.cardDetail}>Joined: {new Date(r.joined_at).toLocaleDateString()}</p>
-              </div>
+              <div key={r.id} style={styles.card}><p style={styles.cardRoute}>👤 {r.referred_name}</p><p style={styles.cardDetail}>Joined: {new Date(r.joined_at).toLocaleDateString()}</p></div>
             ))}
           </div>
         </div>
@@ -717,18 +758,32 @@ function DriverDashboard() {
           <div style={styles.screenHeader}><button style={styles.backBtn} onClick={() => setActiveTab('menu')}>←</button><h2 style={styles.screenTitle}>Settings ⚙️</h2></div>
           <div style={styles.content}>
             <div style={styles.card}>
+              <p style={styles.sectionTitle}>👤 Personal Information</p>
               <div style={styles.avatarSection}>
                 {profile.profile_picture ? <img src={profile.profile_picture} alt="" style={styles.settingsAvatar} /> : <div style={styles.settingsAvatarPlaceholder}>{userName?.charAt(0)}</div>}
                 <label style={styles.docUploadBtn}>📷 Change<input type="file" accept="image/*" onChange={handlePictureUpload} style={{ display: 'none' }} /></label>
               </div>
               <input style={styles.input} type="text" placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} />
               <input style={styles.input} type="text" placeholder="Phone Number" value={phone} onChange={(e) => setPhone(e.target.value)} />
-              <button style={styles.submitBtn} onClick={handleUpdateProfile}>Save Changes</button>
             </div>
+
             <div style={styles.card}>
+              <p style={styles.sectionTitle}>🚗 Vehicle Information</p>
+              <input style={styles.input} type="text" placeholder="Vehicle Plate Number (e.g. GR 1234-23)" value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} />
+              <input style={styles.input} type="text" placeholder="Vehicle Model (e.g. Toyota Corolla)" value={vehicleModel} onChange={(e) => setVehicleModel(e.target.value)} />
+              <input style={styles.input} type="text" placeholder="Vehicle Color (e.g. Blue)" value={vehicleColor} onChange={(e) => setVehicleColor(e.target.value)} />
+              <button style={styles.submitBtn} onClick={handleUpdateProfile}>Save All Changes</button>
+            </div>
+
+            <div style={styles.card}>
+              <p style={styles.sectionTitle}>📋 Account Info</p>
               <p style={styles.infoRow}>📧 {profile.email}</p>
               <p style={styles.infoRow}>📅 Joined: {profile.created_at ? new Date(profile.created_at).toLocaleDateString() : ''}</p>
               <p style={styles.infoRow}>🔑 Referral: {profile.referral_code}</p>
+              <p style={styles.infoRow}>🚗 Plate: {profile.vehicle_number || 'Not set'}</p>
+              <p style={styles.infoRow}>🚙 Model: {profile.vehicle_model || 'Not set'}</p>
+              <p style={styles.infoRow}>🎨 Color: {profile.vehicle_color || 'Not set'}</p>
+              <p style={styles.infoRow}>🔒 Your data is encrypted and secure</p>
             </div>
           </div>
         </div>
@@ -742,7 +797,6 @@ function DriverDashboard() {
               <span style={styles.navIcon}>{tab.icon}</span>
               <span style={styles.navLabel}>{tab.label}</span>
               {tab.id === 'home' && requests.length > 0 && <span style={styles.navBadge}>{requests.length}</span>}
-              {tab.id === 'messages' && conversations.length > 0 && <span style={{...styles.navBadge, right:'10%', width:'8px', height:'8px', borderRadius:'50%'}}></span>}
             </button>
           ))}
         </div>
@@ -756,7 +810,12 @@ const styles = {
   toast: { position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)', backgroundColor: '#333', color: 'white', padding: '12px 24px', borderRadius: '30px', fontSize: '14px', zIndex: 9999, whiteSpace: 'nowrap', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' },
   tripScreen: { position: 'fixed', top: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '480px', height: '100vh', zIndex: 4000, display: 'flex', flexDirection: 'column' },
   tripMap: { flex: 1 },
-  tripPanel: { backgroundColor: 'white', borderRadius: '24px 24px 0 0', padding: '20px', boxShadow: '0 -4px 20px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', gap: '12px' },
+  tripPanel: { backgroundColor: 'white', borderRadius: '24px 24px 0 0', padding: '16px', boxShadow: '0 -4px 20px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', gap: '10px' },
+  etaBar: { display: 'flex', justifyContent: 'space-around', alignItems: 'center', backgroundColor: '#1a1a2e', borderRadius: '12px', padding: '12px' },
+  etaItem: { textAlign: 'center' },
+  etaNum: { fontSize: '18px', fontWeight: 'bold', color: 'white', margin: '0 0 2px 0' },
+  etaLbl: { fontSize: '11px', color: 'rgba(255,255,255,0.7)', margin: 0 },
+  etaDivider: { width: '1px', height: '28px', backgroundColor: 'rgba(255,255,255,0.2)' },
   tripPassengerRow: { display: 'flex', alignItems: 'center', gap: '12px' },
   tripAvatar: { width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover' },
   tripAvatarPlaceholder: { width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#34a853', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', fontWeight: 'bold', color: 'white' },
@@ -851,8 +910,9 @@ const styles = {
   menuProfile: { display: 'flex', alignItems: 'center', gap: '14px' },
   menuAvatar: { width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #34a853' },
   menuAvatarPlaceholder: { width: '60px', height: '60px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '26px', fontWeight: 'bold', color: 'white' },
-  menuName: { color: 'white', fontWeight: 'bold', fontSize: '18px', margin: '0 0 4px 0' },
-  menuRole: { color: 'rgba(255,255,255,0.7)', fontSize: '13px', margin: 0 },
+  menuName: { color: 'white', fontWeight: 'bold', fontSize: '18px', margin: '0 0 2px 0' },
+  menuRole: { color: 'rgba(255,255,255,0.7)', fontSize: '13px', margin: '0 0 2px 0' },
+  menuVehicle: { color: 'rgba(255,255,255,0.6)', fontSize: '12px', margin: 0 },
   menuItem: { display: 'flex', alignItems: 'center', gap: '14px', backgroundColor: 'white', borderRadius: '12px', padding: '16px', marginBottom: '8px', cursor: 'pointer', border: 'none', width: '100%', textAlign: 'left', boxShadow: '0 2px 6px rgba(0,0,0,0.04)' },
   menuIcon: { fontSize: '20px', width: '28px' },
   menuLabel: { flex: 1, fontSize: '15px', color: '#333', fontWeight: '500' },
@@ -884,6 +944,7 @@ const styles = {
   tipText: { margin: 0, fontSize: '13px', color: '#444' },
   input: { width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #ddd', fontSize: '14px', outline: 'none', marginBottom: '10px', boxSizing: 'border-box' },
   textarea: { width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #ddd', fontSize: '14px', resize: 'vertical', outline: 'none', marginBottom: '10px', boxSizing: 'border-box' },
+  sectionTitle: { fontSize: '15px', fontWeight: 'bold', color: '#333', margin: '0 0 12px 0' },
   avatarSection: { display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' },
   settingsAvatar: { width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover' },
   settingsAvatarPlaceholder: { width: '64px', height: '64px', borderRadius: '50%', backgroundColor: '#1a73e8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', fontWeight: 'bold', color: 'white' },

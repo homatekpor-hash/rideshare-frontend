@@ -59,9 +59,7 @@ function TripMap({ riderPos, pickupLat, pickupLng, dropoffLat, dropoffLng, statu
         const start = riderPos || [5.6037, -0.1870];
         const end = status === 'accepted' ? [pickupLat, pickupLng] : [dropoffLat, dropoffLng];
         if (!end || !end[0] || !end[1]) return;
-        const res = await fetch(
-          `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson`
-        );
+        const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson`);
         const data = await res.json();
         if (data.routes && data.routes[0]) {
           const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
@@ -69,9 +67,7 @@ function TripMap({ riderPos, pickupLat, pickupLng, dropoffLat, dropoffLng, statu
           const durationMins = Math.round(data.routes[0].duration / 60);
           const distanceKm = (data.routes[0].distance / 1000).toFixed(1);
           if (onRouteInfo) onRouteInfo({ durationMins, distanceKm });
-          if (coords.length > 1) {
-            map.fitBounds(coords, { padding: [50, 50] });
-          }
+          if (coords.length > 1) map.fitBounds(coords, { padding: [50, 50] });
         }
       } catch (e) { console.error('Route error:', e); }
     };
@@ -86,9 +82,7 @@ function TripMap({ riderPos, pickupLat, pickupLng, dropoffLat, dropoffLng, statu
       {riderPos && <Marker position={riderPos} />}
       {pickupLat && pickupLng && <Marker position={[pickupLat, pickupLng]} icon={greenDot} />}
       {dropoffLat && dropoffLng && <Marker position={[dropoffLat, dropoffLng]} icon={redDot} />}
-      {routeCoords.length > 0 && (
-        <Polyline positions={routeCoords} color={status === 'accepted' ? '#34a853' : '#1a73e8'} weight={5} opacity={0.8} />
-      )}
+      {routeCoords.length > 0 && <Polyline positions={routeCoords} color={status === 'accepted' ? '#34a853' : '#1a73e8'} weight={5} opacity={0.8} />}
     </>
   );
 }
@@ -182,8 +176,7 @@ function RiderDashboard() {
       setSearchResults(res.data.matches);
       setShowSearch(false);
       setActiveTab('results');
-      if (res.data.matches.length === 0) setMessage('No rides found. Try nearby stops like Kaneshie or Mallam Junction.');
-      setTimeout(() => setMessage(''), 4000);
+      if (res.data.matches.length === 0) { setMessage('No rides found. Try nearby stops like Kaneshie or Mallam Junction.'); setTimeout(() => setMessage(''), 4000); }
     } catch (e) { setMessage('Error finding rides.'); }
   };
 
@@ -191,8 +184,7 @@ function RiderDashboard() {
     try {
       await axios.post(`${API}/bookings`, { ride_id: ride.id, passenger_id: userId });
       setMessage('✅ Ride booked! Waiting for driver to accept...');
-      fetchAll();
-      setActiveTab('rides');
+      fetchAll(); setActiveTab('rides');
       setTimeout(() => setMessage(''), 4000);
     } catch (e) { setMessage('❌ Error booking ride.'); }
   };
@@ -200,8 +192,7 @@ function RiderDashboard() {
   const handleCancelBooking = async (bookingId) => {
     await axios.put(`${API}/bookings/${bookingId}/cancel`);
     setMessage('✅ Booking cancelled.');
-    fetchAll();
-    setTimeout(() => setMessage(''), 3000);
+    fetchAll(); setTimeout(() => setMessage(''), 3000);
   };
 
   const handleSubmitRating = async () => {
@@ -221,8 +212,7 @@ function RiderDashboard() {
 
   const handleUpdateProfile = async () => {
     await axios.put(`${API}/users/${userId}/profile`, { name, phone });
-    setMessage('✅ Profile updated!');
-    setTimeout(() => setMessage(''), 3000);
+    setMessage('✅ Profile updated!'); setTimeout(() => setMessage(''), 3000);
   };
 
   const handlePictureUpload = async (e) => {
@@ -249,15 +239,14 @@ function RiderDashboard() {
   const handleComplaint = async () => {
     await axios.post(`${API}/complaints`, { user_id: userId, subject: complaint.subject, message: complaint.message });
     setComplaint({ subject: '', message: '' });
-    setMessage('✅ Complaint submitted!');
-    setTimeout(() => setMessage(''), 3000);
+    setMessage('✅ Complaint submitted!'); setTimeout(() => setMessage(''), 3000);
   };
 
   const fetchChatMessages = async (otherUserId) => {
     try {
       const res = await axios.get(`${API}/messages/${userId}/${otherUserId}`);
       setChatMessages(res.data.messages || []);
-    } catch (e) { console.error('fetchChatMessages error:', e); }
+    } catch (e) { console.error(e); }
   };
 
   const sendMessage = async () => {
@@ -271,17 +260,12 @@ function RiderDashboard() {
       setNewMessage('');
       await fetchChatMessages(selectedChat.other_user_id);
       fetchAll();
-    } catch (e) {
-      console.error('sendMessage error:', e);
-      setMessage('❌ Failed to send. Please try again.');
-      setTimeout(() => setMessage(''), 3000);
-    }
+    } catch (e) { setMessage('❌ Failed to send message.'); setTimeout(() => setMessage(''), 3000); }
   };
 
   const openChatWithDriver = (driverId, driverName) => {
     if (!driverId) { setMessage('❌ Driver info not available.'); setTimeout(() => setMessage(''), 3000); return; }
-    const chat = { other_user_id: String(driverId), other_user_name: driverName || 'Driver' };
-    setSelectedChat(chat);
+    setSelectedChat({ other_user_id: String(driverId), other_user_name: driverName || 'Driver' });
     fetchChatMessages(driverId);
     setActiveTab('messages');
   };
@@ -306,36 +290,18 @@ function RiderDashboard() {
         <div style={styles.tripScreen}>
           <div style={styles.tripMap}>
             <MapContainer center={riderPos || [5.6037, -0.1870]} zoom={14} style={{ height: '100%', width: '100%' }} zoomControl={false}>
-              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="" />
-              <TripMap
-                riderPos={riderPos}
-                pickupLat={activeTrip.from_lat}
-                pickupLng={activeTrip.from_lng}
-                dropoffLat={activeTrip.to_lat}
-                dropoffLng={activeTrip.to_lng}
-                status={tripStatus}
-                onRouteInfo={setRouteInfo}
-              />
+              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+              <TripMap riderPos={riderPos} pickupLat={activeTrip.from_lat} pickupLng={activeTrip.from_lng} dropoffLat={activeTrip.to_lat} dropoffLng={activeTrip.to_lng} status={tripStatus} onRouteInfo={setRouteInfo} />
             </MapContainer>
           </div>
           <div style={styles.tripPanel}>
-            {/* ETA Bar */}
             {routeInfo && (
               <div style={styles.etaBar}>
-                <div style={styles.etaItem}>
-                  <p style={styles.etaNum}>{routeInfo.durationMins} min</p>
-                  <p style={styles.etaLbl}>{tripStatus === 'accepted' ? 'Pickup ETA' : 'Arrival ETA'}</p>
-                </div>
+                <div style={styles.etaItem}><p style={styles.etaNum}>{routeInfo.durationMins} min</p><p style={styles.etaLbl}>{tripStatus === 'accepted' ? 'Pickup ETA' : 'Arrival ETA'}</p></div>
                 <div style={styles.etaDivider} />
-                <div style={styles.etaItem}>
-                  <p style={styles.etaNum}>{routeInfo.distanceKm} km</p>
-                  <p style={styles.etaLbl}>Distance</p>
-                </div>
+                <div style={styles.etaItem}><p style={styles.etaNum}>{routeInfo.distanceKm} km</p><p style={styles.etaLbl}>Distance</p></div>
                 <div style={styles.etaDivider} />
-                <div style={styles.etaItem}>
-                  <p style={styles.etaNum}>GH₵ {activeTrip.price}</p>
-                  <p style={styles.etaLbl}>Fare</p>
-                </div>
+                <div style={styles.etaItem}><p style={styles.etaNum}>GH₵ {activeTrip.price}</p><p style={styles.etaLbl}>Fare</p></div>
               </div>
             )}
             <div style={tripStatus === 'accepted' ? styles.tripStatusAccepted : styles.tripStatusStarted}>
@@ -347,6 +313,7 @@ function RiderDashboard() {
               <div style={{ flex: 1 }}>
                 <p style={styles.tripDriverName}>{activeTrip.driver_name}</p>
                 <p style={styles.tripDriverRoute}>📍 {activeTrip.from_location} → 🏁 {activeTrip.to_location}</p>
+                {activeTrip.vehicle_number && <p style={styles.tripVehicle}>🚗 {activeTrip.vehicle_color} {activeTrip.vehicle_model} | {activeTrip.vehicle_number}</p>}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                 {activeTrip.driver_phone && <a href={`tel:${activeTrip.driver_phone}`} style={styles.callBtn}>📞</a>}
@@ -354,15 +321,8 @@ function RiderDashboard() {
               </div>
             </div>
             <div style={styles.tripActionRow}>
-              <button style={styles.voiceBtn} onClick={() => {
-                const msg = tripStatus === 'accepted'
-                  ? `Your driver ${activeTrip.driver_name} is coming to pick you up at ${activeTrip.from_location}. Estimated arrival in ${routeInfo?.durationMins || ''} minutes.`
-                  : `You are on your way to ${activeTrip.to_location}. Estimated arrival in ${routeInfo?.durationMins || ''} minutes.`;
-                speak(msg);
-              }}>🔊 Voice</button>
-              <button style={styles.msgDriverTripBtn} onClick={() => openChatWithDriver(activeTrip.driver_id, activeTrip.driver_name)}>
-                💬 Message Driver
-              </button>
+              <button style={styles.voiceBtn} onClick={() => speak(tripStatus === 'accepted' ? `Your driver ${activeTrip.driver_name} is coming to pick you up. Estimated ${routeInfo?.durationMins || ''} minutes.` : `You are heading to ${activeTrip.to_location}. Estimated ${routeInfo?.durationMins || ''} minutes.`)}>🔊 Voice</button>
+              <button style={styles.msgDriverTripBtn} onClick={() => openChatWithDriver(activeTrip.driver_id, activeTrip.driver_name)}>💬 Message Driver</button>
             </div>
           </div>
         </div>
@@ -473,6 +433,16 @@ function RiderDashboard() {
                     <p style={styles.ridePriceLbl}>per seat</p>
                   </div>
                 </div>
+
+                {/* Vehicle Info */}
+                {(ride.vehicle_number || ride.vehicle_model) && (
+                  <div style={styles.vehicleInfoBox}>
+                    <span style={styles.vehicleInfoText}>🚗 {ride.vehicle_color} {ride.vehicle_model}</span>
+                    <span style={styles.vehiclePlate}>{ride.vehicle_number}</span>
+                  </div>
+                )}
+
+                {/* Route */}
                 <div style={styles.rideResultRoute}>
                   <div style={styles.routeDot} />
                   <p style={styles.routeText}>{ride.from_location}</p>
@@ -491,6 +461,7 @@ function RiderDashboard() {
                   <div style={{...styles.routeDot, backgroundColor: '#ea4335'}} />
                   <p style={styles.routeText}>{ride.to_location}</p>
                 </div>
+
                 <div style={styles.rideResultBottom}>
                   <p style={styles.rideSeats}>💺 {ride.seats_available} seats</p>
                   <p style={styles.rideTime}>🕐 {ride.departure_time}</p>
@@ -533,16 +504,23 @@ function RiderDashboard() {
                     <p style={styles.tripRouteText}>{booking.to_location}</p>
                   </div>
                 </div>
+
+                {/* Vehicle Info on booking card */}
+                {(booking.vehicle_number || booking.vehicle_model) && (
+                  <div style={styles.vehicleInfoBox}>
+                    <span style={styles.vehicleInfoText}>🚗 {booking.vehicle_color} {booking.vehicle_model}</span>
+                    <span style={styles.vehiclePlate}>{booking.vehicle_number}</span>
+                  </div>
+                )}
+
                 <div style={styles.tripDetails}>
-                  <p style={styles.tripDetail}>🚗 {booking.driver_name}</p>
+                  <p style={styles.tripDetail}>👤 {booking.driver_name}</p>
                   <p style={styles.tripDetail}>🕐 {booking.departure_time}</p>
                   <p style={styles.tripDetail}>💰 GH₵ {booking.price}</p>
                 </div>
                 <div style={styles.tripBtnRow}>
-                  {booking.driver_phone && <a href={`tel:${booking.driver_phone}`} style={styles.callBtnSmall}>📞 Call</a>}
-                  <button style={styles.msgBtnSmall} onClick={() => openChatWithDriver(booking.driver_id, booking.driver_name)}>
-                    💬 Message Driver
-                  </button>
+                  {booking.driver_phone && <a href={`tel:${booking.driver_phone}`} style={styles.callBtnSmall}>📞 Call Driver</a>}
+                  <button style={styles.msgBtnSmall} onClick={() => openChatWithDriver(booking.driver_id, booking.driver_name)}>💬 Message Driver</button>
                 </div>
                 <div style={styles.tripFooter}>
                   <span style={{...styles.statusBadge,
@@ -614,24 +592,13 @@ function RiderDashboard() {
               <div style={styles.msgList}>
                 {chatMessages.length === 0 && <p style={{textAlign:'center',color:'#aaa',padding:'20px',fontSize:'13px'}}>No messages yet. Say hello! 👋</p>}
                 {chatMessages.map(msg => (
-                  <div key={msg.id} style={{
-                    ...styles.msgBubble,
-                    alignSelf: String(msg.sender_id) === String(userId) ? 'flex-end' : 'flex-start',
-                    backgroundColor: String(msg.sender_id) === String(userId) ? '#34a853' : '#f1f3f4',
-                    color: String(msg.sender_id) === String(userId) ? 'white' : '#333'
-                  }}>
+                  <div key={msg.id} style={{...styles.msgBubble, alignSelf: String(msg.sender_id) === String(userId) ? 'flex-end' : 'flex-start', backgroundColor: String(msg.sender_id) === String(userId) ? '#34a853' : '#f1f3f4', color: String(msg.sender_id) === String(userId) ? 'white' : '#333'}}>
                     <p style={{ margin: 0, fontSize: '14px' }}>{msg.message}</p>
                   </div>
                 ))}
               </div>
               <div style={styles.msgInputBar}>
-                <input
-                  style={styles.msgField}
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Type a message..."
-                  onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                />
+                <input style={styles.msgField} value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Type a message..." onKeyPress={(e) => e.key === 'Enter' && sendMessage()} />
                 <button style={styles.sendBtn} onClick={sendMessage}>Send</button>
               </div>
             </div>
@@ -835,7 +802,8 @@ const styles = {
   tripDriverAvatar: { width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover' },
   tripDriverAvatarPlaceholder: { width: '44px', height: '44px', borderRadius: '50%', backgroundColor: '#34a853', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 'bold', color: 'white' },
   tripDriverName: { fontSize: '15px', fontWeight: 'bold', color: '#333', margin: '0 0 2px 0' },
-  tripDriverRoute: { fontSize: '12px', color: '#888', margin: 0 },
+  tripDriverRoute: { fontSize: '12px', color: '#888', margin: '0 0 2px 0' },
+  tripVehicle: { fontSize: '12px', color: '#34a853', fontWeight: 'bold', margin: 0 },
   callBtn: { fontSize: '16px', textDecoration: 'none', padding: '6px 10px', backgroundColor: '#34a853', borderRadius: '8px', color: 'white' },
   tripFare: { fontSize: '18px', fontWeight: 'bold', color: '#1a73e8', margin: 0 },
   tripActionRow: { display: 'flex', gap: '8px' },
@@ -892,7 +860,7 @@ const styles = {
   emptySmall: { textAlign: 'center', color: '#aaa', padding: '24px', fontSize: '14px' },
   tryAgainBtn: { padding: '14px 32px', backgroundColor: '#34a853', color: 'white', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: 'bold', cursor: 'pointer' },
   rideResultCard: { backgroundColor: 'white', borderRadius: '20px', padding: '20px', marginBottom: '16px', boxShadow: '0 4px 16px rgba(0,0,0,0.08)' },
-  rideResultTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' },
+  rideResultTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' },
   driverInfo: { display: 'flex', alignItems: 'center', gap: '10px' },
   driverAvatar: { width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover' },
   driverAvatarPlaceholder: { width: '44px', height: '44px', borderRadius: '50%', backgroundColor: '#1a73e8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 'bold', color: 'white' },
@@ -901,6 +869,9 @@ const styles = {
   ridePrice: { textAlign: 'right' },
   ridePriceNum: { fontSize: '22px', fontWeight: 'bold', color: '#34a853', margin: '0 0 2px 0' },
   ridePriceLbl: { fontSize: '11px', color: '#888', margin: 0 },
+  vehicleInfoBox: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f0fdf4', borderRadius: '8px', padding: '8px 12px', marginBottom: '12px' },
+  vehicleInfoText: { fontSize: '13px', color: '#333', fontWeight: '500' },
+  vehiclePlate: { fontSize: '13px', fontWeight: 'bold', color: '#34a853', backgroundColor: 'white', padding: '3px 8px', borderRadius: '6px', border: '1px solid #34a853' },
   rideResultRoute: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' },
   routeDot: { width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#34a853', flexShrink: 0 },
   routeText: { fontSize: '14px', color: '#333', margin: 0 },

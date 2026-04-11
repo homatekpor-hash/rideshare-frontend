@@ -140,7 +140,7 @@ function DriverDashboard() {
       () => setDriverPos([5.6037, -0.1870]),
       { enableHighAccuracy: true }
     );
-    const interval = setInterval(() => { fetchRequests(); fetchActiveTrip(); fetchAll(); }, 5000);
+    const interval = setInterval(() => { fetchRequests(); fetchActiveTrip(); }, 5000);
     return () => { clearInterval(interval); navigator.geolocation.clearWatch(watchId); };
   }, []);
 
@@ -165,11 +165,11 @@ function DriverDashboard() {
         axios.get(`${API}/conversations/${userId}`),
       ]);
       setProfile(profileRes.data.user);
-      setName(profileRes.data.user.name);
-      setPhone(profileRes.data.user.phone || '');
-      setVehicleNumber(profileRes.data.user.vehicle_number || '');
-      setVehicleModel(profileRes.data.user.vehicle_model || '');
-      setVehicleColor(profileRes.data.user.vehicle_color || '');
+      if (!name) setName(profileRes.data.user.name);
+if (!phone) setPhone(profileRes.data.user.phone || '');
+if (!vehicleNumber) setVehicleNumber(profileRes.data.user.vehicle_number || '');
+if (!vehicleModel) setVehicleModel(profileRes.data.user.vehicle_model || '');
+if (!vehicleColor) setVehicleColor(profileRes.data.user.vehicle_color || '');
       setMyRides(ridesRes.data.rides);
       setEarnings(earningsRes.data);
       setNotifications(notifRes.data.notifications);

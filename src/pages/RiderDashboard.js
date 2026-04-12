@@ -126,7 +126,7 @@ function RiderDashboard() {
       (pos) => setRiderPos([pos.coords.latitude, pos.coords.longitude]),
       () => setRiderPos([5.6037, -0.1870])
     );
-    const interval = setInterval(() => { fetchActiveTrip(); fetchAll(); }, 5000);
+    const interval = setInterval(() => { fetchActiveTrip(); }, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -153,8 +153,8 @@ function RiderDashboard() {
         axios.get(`${API}/conversations/${userId}`),
       ]);
       setProfile(profileRes.data.user);
-      setName(profileRes.data.user.name);
-      setPhone(profileRes.data.user.phone || '');
+      if (!name) setName(profileRes.data.user.name);
+      if (!phone) setPhone(profileRes.data.user.phone || '');
       setMyBookings(bookingsRes.data.bookings);
       setWallet(walletRes.data);
       setReferrals(referralsRes.data.referrals);
@@ -285,7 +285,6 @@ function RiderDashboard() {
     <div style={styles.app}>
       {message && <div style={styles.toast}>{message}</div>}
 
-      {/* Active Trip Screen */}
       {activeTrip && (tripStatus === 'accepted' || tripStatus === 'started') && (
         <div style={styles.tripScreen}>
           <div style={styles.tripMap}>
@@ -328,7 +327,6 @@ function RiderDashboard() {
         </div>
       )}
 
-      {/* Search Modal */}
       {showSearch && (
         <div style={styles.searchModal}>
           <div style={styles.searchHeader}>
@@ -359,7 +357,6 @@ function RiderDashboard() {
         </div>
       )}
 
-      {/* HOME TAB */}
       {activeTab === 'home' && !(activeTrip && (tripStatus === 'accepted' || tripStatus === 'started')) && (
         <div style={styles.homeScreen}>
           <div style={styles.fullMap}>
@@ -370,7 +367,10 @@ function RiderDashboard() {
           </div>
           <div style={styles.homeTopBar}>
             <div style={styles.hamburger}>☰</div>
-            <div style={styles.homeTitle}>🚗 RideShare</div>
+            <div style={styles.homeTitle}>
+              <img src="/logo.png" alt="Ryde" style={{ width: '28px', height: '28px', borderRadius: '50%', marginRight: '6px', verticalAlign: 'middle', objectFit: 'cover' }} />
+              Ryde
+            </div>
             {profile.profile_picture ? <img src={profile.profile_picture} alt="" style={styles.homeAvatar} onClick={() => setActiveTab('account')} /> : <div style={styles.homeAvatarPlaceholder} onClick={() => setActiveTab('account')}>{userName?.charAt(0)}</div>}
           </div>
           <div style={styles.homeBottomSheet}>
@@ -403,7 +403,6 @@ function RiderDashboard() {
         </div>
       )}
 
-      {/* SEARCH RESULTS */}
       {activeTab === 'results' && (
         <div style={styles.screen}>
           <div style={styles.screenHeader}>
@@ -433,16 +432,12 @@ function RiderDashboard() {
                     <p style={styles.ridePriceLbl}>per seat</p>
                   </div>
                 </div>
-
-                {/* Vehicle Info */}
                 {(ride.vehicle_number || ride.vehicle_model) && (
                   <div style={styles.vehicleInfoBox}>
                     <span style={styles.vehicleInfoText}>🚗 {ride.vehicle_color} {ride.vehicle_model}</span>
                     <span style={styles.vehiclePlate}>{ride.vehicle_number}</span>
                   </div>
                 )}
-
-                {/* Route */}
                 <div style={styles.rideResultRoute}>
                   <div style={styles.routeDot} />
                   <p style={styles.routeText}>{ride.from_location}</p>
@@ -461,7 +456,6 @@ function RiderDashboard() {
                   <div style={{...styles.routeDot, backgroundColor: '#ea4335'}} />
                   <p style={styles.routeText}>{ride.to_location}</p>
                 </div>
-
                 <div style={styles.rideResultBottom}>
                   <p style={styles.rideSeats}>💺 {ride.seats_available} seats</p>
                   <p style={styles.rideTime}>🕐 {ride.departure_time}</p>
@@ -477,7 +471,6 @@ function RiderDashboard() {
         </div>
       )}
 
-      {/* RIDES TAB */}
       {activeTab === 'rides' && (
         <div style={styles.screen}>
           <div style={styles.screenHeader}>
@@ -504,15 +497,12 @@ function RiderDashboard() {
                     <p style={styles.tripRouteText}>{booking.to_location}</p>
                   </div>
                 </div>
-
-                {/* Vehicle Info on booking card */}
                 {(booking.vehicle_number || booking.vehicle_model) && (
                   <div style={styles.vehicleInfoBox}>
                     <span style={styles.vehicleInfoText}>🚗 {booking.vehicle_color} {booking.vehicle_model}</span>
                     <span style={styles.vehiclePlate}>{booking.vehicle_number}</span>
                   </div>
                 )}
-
                 <div style={styles.tripDetails}>
                   <p style={styles.tripDetail}>👤 {booking.driver_name}</p>
                   <p style={styles.tripDetail}>🕐 {booking.departure_time}</p>
@@ -559,7 +549,6 @@ function RiderDashboard() {
         </div>
       )}
 
-      {/* MESSAGES TAB */}
       {activeTab === 'messages' && (
         <div style={styles.screen}>
           <div style={styles.screenHeader}><h2 style={styles.screenTitle}>Messages 💬</h2></div>
@@ -606,7 +595,6 @@ function RiderDashboard() {
         </div>
       )}
 
-      {/* ACCOUNT TAB */}
       {activeTab === 'account' && (
         <div style={styles.screen}>
           <div style={styles.accountHeader}>
@@ -828,7 +816,7 @@ const styles = {
   fullMap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   homeTopBar: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 1000, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px' },
   hamburger: { width: '40px', height: '40px', backgroundColor: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', boxShadow: '0 2px 10px rgba(0,0,0,0.15)', cursor: 'pointer' },
-  homeTitle: { fontSize: '16px', fontWeight: 'bold', color: '#333', backgroundColor: 'white', padding: '8px 16px', borderRadius: '20px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' },
+  homeTitle: { fontSize: '16px', fontWeight: 'bold', color: '#333', backgroundColor: 'white', padding: '8px 16px', borderRadius: '20px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center' },
   homeAvatar: { width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', cursor: 'pointer' },
   homeAvatarPlaceholder: { width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#34a853', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 'bold', color: 'white', cursor: 'pointer' },
   homeBottomSheet: { position: 'absolute', bottom: '60px', left: 0, right: 0, backgroundColor: 'white', borderRadius: '24px 24px 0 0', padding: '20px', zIndex: 1000, boxShadow: '0 -4px 20px rgba(0,0,0,0.1)' },

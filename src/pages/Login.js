@@ -1,73 +1,63 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 const API = 'https://rideshare-backend-production-32f5.up.railway.app';
 
 function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      setMessage('Please fill in all fields.');
-      return;
-    }
+    setLoading(true); setError('');
     try {
-      const response = await axios.post(`${API}/login`, { email, password });
-      const { userId, name, role, phone, profilePicture, isOnline, walletBalance, referralCode } = response.data;
+      const res = await axios.post(`${API}/login`, { email, password });
+      const { userId, name, role, isOnline } = res.data;
       localStorage.setItem('userId', userId);
       localStorage.setItem('userName', name);
       localStorage.setItem('userRole', role);
-      localStorage.setItem('userPhone', phone || '');
-      localStorage.setItem('profilePicture', profilePicture || '');
-      localStorage.setItem('isOnline', isOnline);
-      localStorage.setItem('walletBalance', walletBalance || 0);
-      localStorage.setItem('referralCode', referralCode || '');
-
+      localStorage.setItem('isOnline', isOnline ? '1' : '0');
       if (role === 'admin') navigate('/admin');
       else if (role === 'driver') navigate('/driver');
       else navigate('/rider');
-    } catch (error) {
-      setMessage('Invalid email or password. Please try again.');
+    } catch (e) {
+      setError('Invalid email or password. Please try again.');
     }
+    setLoading(false);
   };
 
   return (
     <div style={styles.container}>
       <div style={styles.card}>
-        <div style={styles.logo}>🚗</div>
+        <img src="/logo.png" alt="Ryde" style={styles.logo} />
         <h2 style={styles.title}>Welcome Back!</h2>
-        <p style={styles.subtitle}>Login to your RideShare account</p>
-
+        <p style={styles.subtitle}>Login to your Ryde account</p>
         <input style={styles.input} type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} />
-        <input style={styles.input} type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
-
-        <button style={styles.button} onClick={handleLogin}>Login</button>
-
-        {message && <p style={styles.error}>{message}</p>}
-
-        <p style={styles.registerLink}>
-          Don't have an account? <Link to="/register" style={styles.link}>Register here</Link>
-        </p>
+        <input style={styles.input} type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleLogin()} />
+        {error && <p style={styles.error}>{error}</p>}
+        <button style={styles.btn} onClick={handleLogin} disabled={loading}>
+          {loading ? 'Logging in...' : 'Login'}
+        </button>
+        <p style={styles.link}>Don't have an account? <Link to="/register" style={styles.linkText}>Register here</Link></p>
       </div>
     </div>
   );
 }
 
 const styles = {
-  container: { display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f8f9fa', padding: '32px' },
-  card: { backgroundColor: 'white', padding: '40px', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', gap: '16px', width: '100%', maxWidth: '400px' },
-  logo: { textAlign: 'center', fontSize: '48px' },
-  title: { textAlign: 'center', color: '#1a73e8', margin: 0, fontSize: '28px' },
-  subtitle: { textAlign: 'center', color: '#888', margin: 0, fontSize: '14px' },
-  input: { padding: '12px 16px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '16px', outline: 'none' },
-  button: { padding: '14px', backgroundColor: '#1a73e8', color: 'white', border: 'none', borderRadius: '8px', fontSize: '16px', cursor: 'pointer', fontWeight: 'bold' },
-  error: { textAlign: 'center', color: '#ea4335', margin: 0, fontSize: '14px' },
-  registerLink: { textAlign: 'center', color: '#888', fontSize: '14px', margin: 0 },
-  link: { color: '#1a73e8', textDecoration: 'none', fontWeight: 'bold' },
+  container: { minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f0f4f8', padding: '20px' },
+  card: { backgroundColor: 'white', borderRadius: '24px', padding: '40px 32px', width: '100%', maxWidth: '400px', boxShadow: '0 8px 32px rgba(0,0,0,0.1)', textAlign: 'center' },
+  logo: { width: '120px', height: '120px', borderRadius: '50%', marginBottom: '20px', objectFit: 'cover' },
+  title: { fontSize: '26px', fontWeight: 'bold', color: '#1a1a2e', margin: '0 0 8px 0' },
+  subtitle: { fontSize: '14px', color: '#888', margin: '0 0 28px 0' },
+  input: { width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid #eee', fontSize: '15px', outline: 'none', marginBottom: '14px', boxSizing: 'border-box', backgroundColor: '#f8f9fa' },
+  error: { color: '#ea4335', fontSize: '13px', margin: '0 0 14px 0' },
+  btn: { width: '100%', padding: '15px', backgroundColor: '#1a73e8', color: 'white', border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', marginBottom: '20px' },
+  link: { fontSize: '14px', color: '#888', margin: 0 },
+  linkText: { color: '#1a73e8', fontWeight: 'bold', textDecoration: 'none' },
 };
 
 export default Login;

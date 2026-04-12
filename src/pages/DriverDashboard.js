@@ -1,10 +1,10 @@
-import { sendNotification } from '../utils/notifications';
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { sendNotification } from '../utils/notifications';
 
 const API = 'https://rideshare-backend-production-32f5.up.railway.app';
 
@@ -69,9 +69,7 @@ function NavigationMap({ driverPos, targetLat, targetLng, color, onRouteInfo }) 
       try {
         const start = driverPos || [5.6037, -0.1870];
         if (!targetLat || !targetLng) return;
-        const res = await fetch(
-          `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${targetLng},${targetLat}?overview=full&geometries=geojson`
-        );
+        const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${targetLng},${targetLat}?overview=full&geometries=geojson`);
         const data = await res.json();
         if (data.routes && data.routes[0]) {
           const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
@@ -79,7 +77,7 @@ function NavigationMap({ driverPos, targetLat, targetLng, color, onRouteInfo }) 
           const durationMins = Math.round(data.routes[0].duration / 60);
           const distanceKm = (data.routes[0].distance / 1000).toFixed(1);
           if (onRouteInfo) onRouteInfo({ durationMins, distanceKm });
-          map.setView(driverPos || start, 16);
+          map.setView(start, 16);
         }
       } catch (e) { console.error('Route error:', e); }
     };
@@ -96,8 +94,8 @@ function NavigationMap({ driverPos, targetLat, targetLng, color, onRouteInfo }) 
   });
 
   const driverIcon = L.divIcon({
-    html: `<div style="background:#1a73e8;width:26px;height:26px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:14px;color:white;font-weight:bold;">▲</div>`,
-    className: '', iconSize: [26, 26], iconAnchor: [13, 13],
+    html: `<div style="background:#1a73e8;width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:14px;">🚗</div>`,
+    className: '', iconSize: [24, 24], iconAnchor: [12, 12],
   });
 
   return (
@@ -106,13 +104,12 @@ function NavigationMap({ driverPos, targetLat, targetLng, color, onRouteInfo }) 
       {targetLat && targetLng && <Marker position={[targetLat, targetLng]} icon={targetIcon} />}
       {routeCoords.length > 0 && (
         <>
-          <Polyline positions={routeCoords} color="#ccc" weight={8} opacity={0.4} />
-          <Polyline positions={routeCoords} color={color} weight={5} opacity={1} />
+          <Polyline positions={routeCoords} color="#ccc" weight={7} opacity={0.5} />
+          <Polyline positions={routeCoords} color={color} weight={5} opacity={0.9} />
         </>
       )}
     </>
   );
-}
 }
 
 function DriverDashboard() {
@@ -159,7 +156,7 @@ function DriverDashboard() {
     const watchId = navigator.geolocation.watchPosition(
       (pos) => setDriverPos([pos.coords.latitude, pos.coords.longitude]),
       () => setDriverPos([5.6037, -0.1870]),
-      { enableHighAccuracy: true }
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
     );
     const interval = setInterval(() => { fetchRequests(); fetchActiveTrip(); }, 5000);
     return () => { clearInterval(interval); navigator.geolocation.clearWatch(watchId); };
@@ -169,23 +166,10 @@ function DriverDashboard() {
     if (requests.length > prevRequestCount.current && requests.length > 0) {
       playSound('request');
       speak(`New ride request from ${requests[0].passenger_name}. From ${requests[0].from_location} to ${requests[0].to_location}.`);
-    }useEffect(() => {
-  if (driverPos && targetLat && targetLng) {
-    fetchRoute();
-    const routeInterval = setInterval(fetchRoute, 15000);
-    return () => clearInterval(routeInterval);
-  }
-}, [driverPos, targetLat, targetLng]);
+      sendNotification('🔔 New Ride Request!', `${requests[0].passenger_name} wants a ride from ${requests[0].from_location} to ${requests[0].to_location}.`);
+    }
     prevRequestCount.current = requests.length;
   }, [requests]);
-  useEffect(() => {
-  if (requests.length > prevRequestCount.current && requests.length > 0) {
-    playSound('request');
-    speak(`New ride request from ${requests[0].passenger_name}. From ${requests[0].from_location} to ${requests[0].to_location}.`);
-    sendNotification('🔔 New Ride Request!', `${requests[0].passenger_name} wants a ride from ${requests[0].from_location} to ${requests[0].to_location}.`);
-  }
-  prevRequestCount.current = requests.length;
-}, [requests]);
 
   const fetchAll = async () => {
     try {
@@ -424,7 +408,7 @@ function DriverDashboard() {
       {activeTrip && activeTab === 'home' && (
         <div style={styles.tripScreen}>
           <div style={styles.tripMap}>
-            <MapContainer center={driverPos || [5.6037, -0.1870]} zoom={14} style={{ height: '100%', width: '100%' }} zoomControl={false}>
+            <MapContainer center={driverPos || [5.6037, -0.1870]} zoom={16} style={{ height: '100%', width: '100%' }} zoomControl={false}>
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
               <NavigationMap
                 driverPos={driverPos}
@@ -457,11 +441,6 @@ function DriverDashboard() {
               <p style={{...styles.tripStatusLabel, color: tripStatus === 'accepted' ? '#f9a825' : '#1a73e8'}}>
                 {tripStatus === 'accepted' ? '🟡 Heading to Pickup' : '🔵 Trip in Progress'}
               </p>
-              {nextInstruction && (
-  <div style={styles.instructionBar}>
-    <p style={styles.instructionText}>🧭 {nextInstruction}</p>
-  </div>
-)}
               <p style={styles.tripLocation}>{tripStatus === 'accepted' ? `📍 ${activeTrip.from_location}` : `🏁 ${activeTrip.to_location}`}</p>
             </div>
             {tripStatus === 'accepted' && <button style={styles.startTripBtn} onClick={handleStartTrip}>🚦 Arrived at Pickup — Start Trip</button>}
@@ -513,7 +492,7 @@ function DriverDashboard() {
       {activeTab === 'home' && !activeTrip && (
         <div style={styles.homeScreen}>
           <div style={styles.fullMap}>
-            <MapContainer center={driverPos || [5.6037, -0.1870]} zoom={13} style={{ height: '100%', width: '100%' }} zoomControl={false}>
+            <MapContainer center={driverPos || [5.6037, -0.1870]} zoom={15} style={{ height: '100%', width: '100%' }} zoomControl={false}>
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
               {driverPos && <Marker position={driverPos} />}
             </MapContainer>
@@ -972,7 +951,6 @@ const styles = {
   navIcon: { fontSize: '22px' },
   navLabel: { fontSize: '10px', fontWeight: '500' },
   navBadge: { position: 'absolute', top: '4px', right: '18%', backgroundColor: '#ea4335', color: 'white', borderRadius: '10px', fontSize: '9px', padding: '2px 5px', fontWeight: 'bold' },
-};instructionBar: { backgroundColor: '#1a73e8', borderRadius: '10px', padding: '10px 14px' },
-instructionText: { color: 'white', fontSize: '13px', fontWeight: 'bold', margin: 0 },
+};
 
 export default DriverDashboard;

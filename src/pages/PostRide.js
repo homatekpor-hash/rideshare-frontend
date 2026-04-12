@@ -15,7 +15,11 @@ const GHANA_STOPS = [
   'Osu', 'Labone', 'Airport', 'East Legon', 'Legon',
   'Haatso', 'Taifa', 'Kwabenya', 'Atomic', 'Dome',
   'Dansoman', 'Mamprobi', 'Korle Bu', 'Agbogbloshie',
-  'Tudu', 'Makola', 'Rawlings Park', 'Nkrumah Circle',
+  'Tudu', 'Makola', 'Rawlings Park', 'Nkrumah Circle','Manhean', 'Ablekuma', 'Ablekuma North', 'Ablekuma Central',
+'Ablekuma West', 'Darkuman Junction', 'Dansoman Last Stop',
+'Prampram', 'Afienya', 'Dodowa', 'Oyibi', 'Ashongman',
+'Atomic Junction', 'Adenta', 'Madina Zongo', 'Pantang',
+'Abokobi', 'Kwabenya', 'Taifa', 'Dome Market',
 ];
 
 function PostRide() {

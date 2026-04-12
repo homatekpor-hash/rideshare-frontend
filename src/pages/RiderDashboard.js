@@ -411,7 +411,22 @@ function RiderDashboard() {
           <button style={styles.searchBtn} onClick={handleSearch}>🔍 Find Available Rides</button>
           <div style={styles.suggestions}>
             <p style={styles.suggestTitle}>Popular Routes</p>
-            {[['Accra','Kasoa'],['Kaneshie','Kasoa'],['Accra','Tema'],['Mallam Junction','Kasoa'],['Accra','Kumasi'],['Accra','Cape Coast']].map(([from,to]) => (
+            {[
+  ['Accra','Kasoa'],
+  ['Accra','Tema'],
+  ['Accra','Kumasi'],
+  ['Manhean','Accra'],
+  ['Manhean','Madina'],
+  ['Manhean','Dodowa'],
+  ['Ablekuma','Kasoa'],
+  ['Ablekuma','Accra'],
+  ['Lapaz','Accra'],
+  ['Lapaz','Dodowa'],
+  ['Kaneshie','Kasoa'],
+  ['Accra','Cape Coast'],
+  ['Accra','Takoradi'],
+  ['Accra','Tamale'],
+].map(([from,to]) => (
               <button key={from+to} style={styles.suggestItem} onClick={() => { setFromCity(from); setToCity(to); }}>
                 <span style={styles.suggestIcon}>🕐</span>
                 <span style={styles.suggestText}>{from} → {to}</span>

@@ -59,13 +59,16 @@ const speak = (text) => {
 function NavigationMap({ driverPos, targetLat, targetLng, color, onRouteInfo }) {
   const map = useMap();
   const [routeCoords, setRouteCoords] = useState([]);
+  const [nextInstruction, setNextInstruction] = useState('');
 
   useEffect(() => {
     const fetchRoute = async () => {
       try {
         const start = driverPos || [5.6037, -0.1870];
         if (!targetLat || !targetLng) return;
-        const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${targetLng},${targetLat}?overview=full&geometries=geojson`);
+        const res = await fetch(
+          `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${targetLng},${targetLat}?overview=full&geometries=geojson&steps=true`
+        );
         const data = await res.json();
         if (data.routes && data.routes[0]) {
           const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
@@ -73,7 +76,16 @@ function NavigationMap({ driverPos, targetLat, targetLng, color, onRouteInfo }) 
           const durationMins = Math.round(data.routes[0].duration / 60);
           const distanceKm = (data.routes[0].distance / 1000).toFixed(1);
           if (onRouteInfo) onRouteInfo({ durationMins, distanceKm });
-          if (coords.length > 1) map.fitBounds(coords, { padding: [50, 50] });
+          // Get next turn instruction
+          const steps = data.routes[0].legs[0]?.steps;
+          if (steps && steps.length > 0) {
+            const nextStep = steps[0];
+            const maneuver = nextStep.maneuver?.type || '';
+            const modifier = nextStep.maneuver?.modifier || '';
+            const distance = Math.round(nextStep.distance);
+            setNextInstruction(`${modifier ? modifier + ' ' : ''}${maneuver} in ${distance}m`);
+          }
+          map.setView(start, 16);
         }
       } catch (e) { console.error('Route error:', e); }
     };
@@ -85,13 +97,24 @@ function NavigationMap({ driverPos, targetLat, targetLng, color, onRouteInfo }) 
     className: '', iconSize: [20, 20], iconAnchor: [10, 10],
   });
 
+  const driverIcon = L.divIcon({
+    html: `<div style="background:#1a73e8;width:22px;height:22px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:12px;">🚗</div>`,
+    className: '', iconSize: [22, 22], iconAnchor: [11, 11],
+  });
+
   return (
     <>
-      {driverPos && <Marker position={driverPos} />}
+      {driverPos && <Marker position={driverPos} icon={driverIcon} />}
       {targetLat && targetLng && <Marker position={[targetLat, targetLng]} icon={targetIcon} />}
-      {routeCoords.length > 0 && <Polyline positions={routeCoords} color={color} weight={5} opacity={0.8} />}
+      {routeCoords.length > 0 && (
+        <>
+          <Polyline positions={routeCoords} color="#ccc" weight={7} opacity={0.5} />
+          <Polyline positions={routeCoords} color={color} weight={5} opacity={0.9} />
+        </>
+      )}
     </>
   );
+}
 }
 
 function DriverDashboard() {
@@ -430,6 +453,11 @@ function DriverDashboard() {
               <p style={{...styles.tripStatusLabel, color: tripStatus === 'accepted' ? '#f9a825' : '#1a73e8'}}>
                 {tripStatus === 'accepted' ? '🟡 Heading to Pickup' : '🔵 Trip in Progress'}
               </p>
+              {nextInstruction && (
+  <div style={styles.instructionBar}>
+    <p style={styles.instructionText}>🧭 {nextInstruction}</p>
+  </div>
+)}
               <p style={styles.tripLocation}>{tripStatus === 'accepted' ? `📍 ${activeTrip.from_location}` : `🏁 ${activeTrip.to_location}`}</p>
             </div>
             {tripStatus === 'accepted' && <button style={styles.startTripBtn} onClick={handleStartTrip}>🚦 Arrived at Pickup — Start Trip</button>}
@@ -940,6 +968,7 @@ const styles = {
   navIcon: { fontSize: '22px' },
   navLabel: { fontSize: '10px', fontWeight: '500' },
   navBadge: { position: 'absolute', top: '4px', right: '18%', backgroundColor: '#ea4335', color: 'white', borderRadius: '10px', fontSize: '9px', padding: '2px 5px', fontWeight: 'bold' },
-};
+};instructionBar: { backgroundColor: '#1a73e8', borderRadius: '10px', padding: '10px 14px' },
+instructionText: { color: 'white', fontSize: '13px', fontWeight: 'bold', margin: 0 },
 
 export default DriverDashboard;

@@ -5,7 +5,7 @@ import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { sendNotification } from '../utils/notifications';
-
+import { connectWebSocket, disconnectWebSocket, sendNotification } from '../utils/notifications';
 const API = 'https://rideshare-backend-production-32f5.up.railway.app';
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -148,29 +148,40 @@ function DriverDashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!userId || localStorage.getItem('userRole') !== 'driver') { navigate('/login'); return; }
-    setIsOnline(localStorage.getItem('isOnline') === '1');
-    fetchAll();
-    fetchRequests();
-    fetchActiveTrip();
-    const watchId = navigator.geolocation.watchPosition(
-      (pos) => setDriverPos([pos.coords.latitude, pos.coords.longitude]),
-      () => setDriverPos([5.6037, -0.1870]),
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
-    );
-    const interval = setInterval(() => { fetchRequests(); fetchActiveTrip(); }, 5000);
-    return () => { clearInterval(interval); navigator.geolocation.clearWatch(watchId); };
-  }, []);
-
-  useEffect(() => {
-    if (requests.length > prevRequestCount.current && requests.length > 0) {
-      playSound('request');
-      speak(`New ride request from ${requests[0].passenger_name}. From ${requests[0].from_location} to ${requests[0].to_location}.`);
-      sendNotification('🔔 New Ride Request!', `${requests[0].passenger_name} wants a ride from ${requests[0].from_location} to ${requests[0].to_location}.`);
+  if (!userId || localStorage.getItem('userRole') !== 'driver') { navigate('/login'); return; }
+  setIsOnline(localStorage.getItem('isOnline') === '1');
+  fetchAll();
+  fetchRequests();
+  fetchActiveTrip();
+  const watchId = navigator.geolocation.watchPosition(
+    (pos) => setDriverPos([pos.coords.latitude, pos.coords.longitude]),
+    () => setDriverPos([5.6037, -0.1870]),
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+  );
+  connectWebSocket(userId, (data) => {
+    if (data.type === 'new_request') {
+      fetchRequests();
     }
-    prevRequestCount.current = requests.length;
-  }, [requests]);
-
+    if (data.type === 'documents_verified') {
+      sendNotification('✅ Documents Verified!', data.message);
+      fetchAll();
+    }
+    if (data.type === 'documents_rejected') {
+      sendNotification('❌ Documents Rejected', data.message);
+      fetchAll();
+    }
+    if (data.type === 'new_message') {
+      fetchChatMessages(data.sender_id);
+      fetchAll();
+    }
+  });
+  const interval = setInterval(() => { fetchRequests(); fetchActiveTrip(); }, 10000);
+  return () => {
+    clearInterval(interval);
+    navigator.geolocation.clearWatch(watchId);
+    disconnectWebSocket();
+  };
+}, []);
   const fetchAll = async () => {
     try {
       const [profileRes, ridesRes, earningsRes, ratingsRes, referralsRes, docsRes, convsRes] = await Promise.all([

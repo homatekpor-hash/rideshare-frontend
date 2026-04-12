@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-
+import { connectWebSocket, disconnectWebSocket, sendNotification } from '../utils/notifications';
 const API = 'https://rideshare-backend-production-32f5.up.railway.app';
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -134,33 +134,45 @@ function RiderDashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!userId || localStorage.getItem('userRole') !== 'rider') { navigate('/login'); return; }
-    fetchAll();
-    fetchActiveTrip();
-    const watchId = navigator.geolocation.watchPosition(
-      (pos) => setRiderPos([pos.coords.latitude, pos.coords.longitude]),
-      () => setRiderPos([5.6037, -0.1870]),
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
-    );
-    const interval = setInterval(() => { fetchActiveTrip(); }, 5000);
-    return () => { clearInterval(interval); navigator.geolocation.clearWatch(watchId); };
-  }, []);
-
-  useEffect(() => {
-    if (!activeTrip) return;
-    if (activeTrip.status === 'accepted' && prevTripStatus !== 'accepted') {
-      playSound('accepted');
-      speak(`Your driver ${activeTrip.driver_name} has accepted your booking and is on the way to pick you up at ${activeTrip.from_location}.`);
-      sendNotification('🚗 Driver Accepted!', `${activeTrip.driver_name} is on the way to pick you up at ${activeTrip.from_location}.`);
+  if (!userId || localStorage.getItem('userRole') !== 'rider') { navigate('/login'); return; }
+  fetchAll();
+  fetchActiveTrip();
+  const watchId = navigator.geolocation.watchPosition(
+    (pos) => setRiderPos([pos.coords.latitude, pos.coords.longitude]),
+    () => setRiderPos([5.6037, -0.1870]),
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+  );
+  connectWebSocket(userId, (data) => {
+    if (data.type === 'booking_accepted') {
+      sendNotification('🚗 Booking Accepted!', data.message);
+      fetchActiveTrip(); fetchAll();
     }
-    if (activeTrip.status === 'started' && prevTripStatus !== 'started') {
-      playSound('started');
-      speak(`Your trip has started. You are heading to ${activeTrip.to_location}.`);
-      sendNotification('🚦 Trip Started!', `You are heading to ${activeTrip.to_location}.`);
+    if (data.type === 'booking_declined') {
+      sendNotification('❌ Booking Declined', data.message);
+      fetchAll();
     }
-    setPrevTripStatus(activeTrip.status);
-  }, [activeTrip]);
-
+    if (data.type === 'trip_started') {
+      sendNotification('🚦 Trip Started!', data.message);
+      fetchActiveTrip();
+    }
+    if (data.type === 'trip_completed') {
+      sendNotification('✅ Trip Completed!', data.message);
+      fetchAll();
+    }
+    if (data.type === 'new_message') {
+      fetchAll();
+      if (data.type === 'new_message' && activeTrip) {
+        fetchTripChatMessages(activeTrip.driver_id);
+      }
+    }
+  });
+  const interval = setInterval(() => { fetchActiveTrip(); }, 10000);
+  return () => {
+    clearInterval(interval);
+    navigator.geolocation.clearWatch(watchId);
+    disconnect WebSocket();
+  };
+}, []);
   const fetchAll = async () => {
     try {
       const [profileRes, bookingsRes, walletRes, referralsRes, convsRes] = await Promise.all([

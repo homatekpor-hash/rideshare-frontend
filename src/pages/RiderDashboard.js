@@ -5,7 +5,6 @@ import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { initializePaystackPayment } from '../utils/payment';
 
 const API = 'https://rideshare-backend-production-32f5.up.railway.app';
 
@@ -115,6 +114,9 @@ function RiderDashboard() {
   const [prevTripStatus, setPrevTripStatus] = useState(null);
   const [riderPos, setRiderPos] = useState(null);
   const [routeInfo, setRouteInfo] = useState(null);
+  const [showTripChat, setShowTripChat] = useState(false);
+  const [tripChatMessages, setTripChatMessages] = useState([]);
+  const [tripNewMessage, setTripNewMessage] = useState('');
 
   const userId = localStorage.getItem('userId');
   const userName = localStorage.getItem('userName');
@@ -173,6 +175,26 @@ function RiderDashboard() {
     } catch (e) {}
   };
 
+  const fetchTripChatMessages = async (driverId) => {
+    try {
+      const res = await axios.get(`${API}/messages/${userId}/${driverId}`);
+      setTripChatMessages(res.data.messages || []);
+    } catch (e) { console.error(e); }
+  };
+
+  const sendTripMessage = async () => {
+    if (!tripNewMessage.trim() || !activeTrip) return;
+    try {
+      await axios.post(`${API}/messages`, {
+        sender_id: parseInt(userId),
+        receiver_id: parseInt(activeTrip.driver_id),
+        message: tripNewMessage.trim(),
+      });
+      setTripNewMessage('');
+      fetchTripChatMessages(activeTrip.driver_id);
+    } catch (e) { console.error(e); }
+  };
+
   const handleSearch = async () => {
     if (!fromCity && !toCity) return;
     try {
@@ -185,31 +207,13 @@ function RiderDashboard() {
   };
 
   const handleBookRide = async (ride) => {
-  try {
-    initializePaystackPayment({
-      email: profile.email || 'rider@ryde.com',
-      amount: parseFloat(ride.price),
-      onSuccess: async (reference) => {
-        await axios.post(`${API}/bookings`, {
-          ride_id: ride.id,
-          passenger_id: userId,
-          payment_reference: reference,
-        });
-        setMessage('✅ Payment successful! Ride booked. Waiting for driver to accept...');
-        sendNotification('✅ Booking Confirmed!', `Your ride from ${ride.from_location} to ${ride.to_location} has been booked!`);
-        fetchAll();
-        setActiveTab('rides');
-        setTimeout(() => setMessage(''), 4000);
-      },
-      onCancel: () => {
-        setMessage('❌ Payment cancelled.');
-        setTimeout(() => setMessage(''), 3000);
-      },
-    });
-  } catch (e) {
-    setMessage('❌ Error booking ride.');
-  }
-};
+    try {
+      await axios.post(`${API}/bookings`, { ride_id: ride.id, passenger_id: userId });
+      setMessage('✅ Ride booked! Waiting for driver to accept...');
+      fetchAll(); setActiveTab('rides');
+      setTimeout(() => setMessage(''), 4000);
+    } catch (e) { setMessage('❌ Error booking ride.'); }
+  };
 
   const handleCancelBooking = async (bookingId) => {
     await axios.put(`${API}/bookings/${bookingId}/cancel`);
@@ -343,8 +347,35 @@ function RiderDashboard() {
             </div>
             <div style={styles.tripActionRow}>
               <button style={styles.voiceBtn} onClick={() => speak(tripStatus === 'accepted' ? `Your driver ${activeTrip.driver_name} is coming to pick you up. Estimated ${routeInfo?.durationMins || ''} minutes.` : `You are heading to ${activeTrip.to_location}. Estimated ${routeInfo?.durationMins || ''} minutes.`)}>🔊 Voice</button>
-              <button style={styles.msgDriverTripBtn} onClick={() => openChatWithDriver(activeTrip.driver_id, activeTrip.driver_name)}>💬 Message Driver</button>
+              <button style={styles.msgDriverTripBtn} onClick={() => { setShowTripChat(true); fetchTripChatMessages(activeTrip.driver_id); }}>💬 Message Driver</button>
             </div>
+
+            {/* In-Trip Chat */}
+            {showTripChat && (
+              <div style={styles.tripChatOverlay}>
+                <div style={styles.tripChatHeader}>
+                  <button style={styles.backBtn} onClick={() => setShowTripChat(false)}>←</button>
+                  <p style={styles.tripChatTitle}>💬 {activeTrip.driver_name}</p>
+                </div>
+                <div style={styles.tripChatMessages}>
+                  {tripChatMessages.length === 0 && <p style={{textAlign:'center',color:'#aaa',fontSize:'13px',padding:'20px'}}>No messages yet. Say hello! 👋</p>}
+                  {tripChatMessages.map(msg => (
+                    <div key={msg.id} style={{
+                      ...styles.msgBubble,
+                      alignSelf: String(msg.sender_id) === String(userId) ? 'flex-end' : 'flex-start',
+                      backgroundColor: String(msg.sender_id) === String(userId) ? '#34a853' : '#f1f3f4',
+                      color: String(msg.sender_id) === String(userId) ? 'white' : '#333'
+                    }}>
+                      <p style={{margin:0, fontSize:'14px'}}>{msg.message}</p>
+                    </div>
+                  ))}
+                </div>
+                <div style={styles.msgInputBar}>
+                  <input style={styles.msgField} value={tripNewMessage} onChange={(e) => setTripNewMessage(e.target.value)} placeholder="Type a message..." onKeyPress={(e) => e.key === 'Enter' && sendTripMessage()} />
+                  <button style={styles.sendBtn} onClick={sendTripMessage}>Send</button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -390,7 +421,7 @@ function RiderDashboard() {
           <div style={styles.homeTopBar}>
             <div style={styles.hamburger}>☰</div>
             <div style={styles.homeTitle}>
-              <img src="/logo.png" alt="Ryde" style={{ width: '28px', height: '28px', borderRadius: '50%', marginRight: '6px', verticalAlign: 'middle', objectFit: 'cover' }} />
+              <img src="/logo.png" alt="Ryde" style={{ width: '28px', height: '28px', borderRadius: '50%', marginRight: '6px', objectFit: 'cover' }} />
               Ryde
             </div>
             {profile.profile_picture ? <img src={profile.profile_picture} alt="" style={styles.homeAvatar} onClick={() => setActiveTab('account')} /> : <div style={styles.homeAvatarPlaceholder} onClick={() => setActiveTab('account')}>{userName?.charAt(0)}</div>}
@@ -798,7 +829,7 @@ const styles = {
   toast: { position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)', backgroundColor: '#333', color: 'white', padding: '12px 24px', borderRadius: '30px', fontSize: '14px', zIndex: 9999, whiteSpace: 'nowrap', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' },
   tripScreen: { position: 'fixed', top: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '480px', height: '100vh', zIndex: 4000, display: 'flex', flexDirection: 'column' },
   tripMap: { flex: 1 },
-  tripPanel: { backgroundColor: 'white', borderRadius: '24px 24px 0 0', padding: '16px', boxShadow: '0 -4px 20px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', gap: '10px' },
+  tripPanel: { backgroundColor: 'white', borderRadius: '24px 24px 0 0', padding: '16px', boxShadow: '0 -4px 20px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', gap: '10px', position: 'relative' },
   etaBar: { display: 'flex', justifyContent: 'space-around', alignItems: 'center', backgroundColor: '#1a1a2e', borderRadius: '12px', padding: '12px' },
   etaItem: { textAlign: 'center' },
   etaNum: { fontSize: '18px', fontWeight: 'bold', color: 'white', margin: '0 0 2px 0' },
@@ -819,6 +850,10 @@ const styles = {
   tripActionRow: { display: 'flex', gap: '8px' },
   voiceBtn: { flex: 1, padding: '10px', backgroundColor: '#f8f9fa', color: '#333', border: '1px solid #ddd', borderRadius: '10px', fontSize: '13px', cursor: 'pointer' },
   msgDriverTripBtn: { flex: 2, padding: '10px', backgroundColor: '#1a73e8', color: 'white', border: 'none', borderRadius: '10px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' },
+  tripChatOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, height: '65%', backgroundColor: 'white', borderRadius: '20px 20px 0 0', display: 'flex', flexDirection: 'column', boxShadow: '0 -4px 20px rgba(0,0,0,0.2)', zIndex: 100 },
+  tripChatHeader: { padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid #f0f0f0' },
+  tripChatTitle: { fontSize: '16px', fontWeight: 'bold', color: '#333', margin: 0 },
+  tripChatMessages: { flex: 1, padding: '16px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', backgroundColor: '#f8f9fa' },
   searchModal: { position: 'fixed', top: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '480px', height: '100vh', backgroundColor: 'white', zIndex: 5000, display: 'flex', flexDirection: 'column' },
   searchHeader: { padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid #f0f0f0' },
   closeSearch: { background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#333' },

@@ -5,6 +5,9 @@ import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { connectWebSocket, disconnectWebSocket, sendNotification } from '../utils/notifications';
+import { initializePaystackPayment } from '../utils/payment';
+import NotificationBell from '../components/NotificationBell';
+
 const API = 'https://rideshare-backend-production-32f5.up.railway.app';
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -67,11 +70,10 @@ function TripMap({ riderPos, pickupLat, pickupLng, dropoffLat, dropoffLng, statu
           const durationMins = Math.round(data.routes[0].duration / 60);
           const distanceKm = (data.routes[0].distance / 1000).toFixed(1);
           if (onRouteInfo) onRouteInfo({ durationMins, distanceKm });
-          map.setView(start, 15);
+          map.setView(riderPos || start, 15);
         }
       } catch (e) { console.error('Route error:', e); }
     };
-
     if (riderPos && ((pickupLat && pickupLng) || (dropoffLat && dropoffLng))) {
       fetchRoute();
       const routeInterval = setInterval(fetchRoute, 15000);
@@ -81,11 +83,10 @@ function TripMap({ riderPos, pickupLat, pickupLng, dropoffLat, dropoffLng, statu
 
   const greenDot = L.divIcon({ html: `<div style="background:#34a853;width:18px;height:18px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)"></div>`, className: '', iconSize: [18,18], iconAnchor: [9,9] });
   const redDot = L.divIcon({ html: `<div style="background:#ea4335;width:18px;height:18px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)"></div>`, className: '', iconSize: [18,18], iconAnchor: [9,9] });
-  const riderIcon = L.divIcon({ html: `<div style="background:#1a73e8;width:20px;height:20px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.4)"></div>`, className: '', iconSize: [20,20], iconAnchor: [10,10] });
 
   return (
     <>
-      {riderPos && <Marker position={riderPos} icon={riderIcon} />}
+      {riderPos && <Marker position={riderPos} />}
       {pickupLat && pickupLng && <Marker position={[pickupLat, pickupLng]} icon={greenDot} />}
       {dropoffLat && dropoffLng && <Marker position={[dropoffLat, dropoffLng]} icon={redDot} />}
       {routeCoords.length > 0 && (
@@ -121,57 +122,63 @@ function RiderDashboard() {
   const [idImage, setIdImage] = useState(null);
   const [showSearch, setShowSearch] = useState(false);
   const [activeTrip, setActiveTrip] = useState(null);
-  const [prevTripStatus, setPrevTripStatus] = useState(null);
   const [riderPos, setRiderPos] = useState(null);
   const [routeInfo, setRouteInfo] = useState(null);
   const [showTripChat, setShowTripChat] = useState(false);
   const [tripChatMessages, setTripChatMessages] = useState([]);
   const [tripNewMessage, setTripNewMessage] = useState('');
+  const [notifications, setNotifications] = useState([]);
 
   const userId = localStorage.getItem('userId');
   const userName = localStorage.getItem('userName');
   const navigate = useNavigate();
 
   useEffect(() => {
-  if (!userId || localStorage.getItem('userRole') !== 'rider') { navigate('/login'); return; }
-  fetchAll();
-  fetchActiveTrip();
-  const watchId = navigator.geolocation.watchPosition(
-    (pos) => setRiderPos([pos.coords.latitude, pos.coords.longitude]),
-    () => setRiderPos([5.6037, -0.1870]),
-    { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
-  );
-  connectWebSocket(userId, (data) => {
-    if (data.type === 'booking_accepted') {
-      sendNotification('🚗 Booking Accepted!', data.message);
-      fetchActiveTrip(); fetchAll();
-    }
-    if (data.type === 'booking_declined') {
-      sendNotification('❌ Booking Declined', data.message);
-      fetchAll();
-    }
-    if (data.type === 'trip_started') {
-      sendNotification('🚦 Trip Started!', data.message);
-      fetchActiveTrip();
-    }
-    if (data.type === 'trip_completed') {
-      sendNotification('✅ Trip Completed!', data.message);
-      fetchAll();
-    }
-    if (data.type === 'new_message') {
-      fetchAll();
-      if (data.type === 'new_message' && activeTrip) {
-        fetchTripChatMessages(activeTrip.driver_id);
+    if (!userId || localStorage.getItem('userRole') !== 'rider') { navigate('/login'); return; }
+    fetchAll();
+    fetchActiveTrip();
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => setRiderPos([pos.coords.latitude, pos.coords.longitude]),
+      () => setRiderPos([5.6037, -0.1870]),
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+    );
+    connectWebSocket(userId, (data) => {
+      const time = new Date().toLocaleTimeString();
+      if (data.type === 'booking_accepted') {
+        playSound('accepted');
+        sendNotification('🚗 Booking Accepted!', data.message);
+        setNotifications(prev => [{ message: data.message, icon: '🚗', time, read: false }, ...prev]);
+        fetchActiveTrip(); fetchAll();
       }
-    }
-  });
-  const interval = setInterval(() => { fetchActiveTrip(); }, 10000);
-  return () => {
-    clearInterval(interval);
-    navigator.geolocation.clearWatch(watchId);
-    disconnectWebSocket();
-  };
-}, []);
+      if (data.type === 'booking_declined') {
+        sendNotification('❌ Booking Declined', data.message);
+        setNotifications(prev => [{ message: data.message, icon: '❌', time, read: false }, ...prev]);
+        fetchAll();
+      }
+      if (data.type === 'trip_started') {
+        playSound('started');
+        sendNotification('🚦 Trip Started!', data.message);
+        setNotifications(prev => [{ message: data.message, icon: '🚦', time, read: false }, ...prev]);
+        fetchActiveTrip();
+      }
+      if (data.type === 'trip_completed') {
+        sendNotification('✅ Trip Completed!', data.message);
+        setNotifications(prev => [{ message: data.message, icon: '✅', time, read: false }, ...prev]);
+        fetchAll();
+      }
+      if (data.type === 'new_message') {
+        setNotifications(prev => [{ message: 'New message from your driver!', icon: '💬', time, read: false }, ...prev]);
+        fetchAll();
+      }
+    });
+    const interval = setInterval(() => { fetchActiveTrip(); }, 10000);
+    return () => {
+      clearInterval(interval);
+      navigator.geolocation.clearWatch(watchId);
+      disconnectWebSocket();
+    };
+  }, []);
+
   const fetchAll = async () => {
     try {
       const [profileRes, bookingsRes, walletRes, referralsRes, convsRes] = await Promise.all([
@@ -231,10 +238,22 @@ function RiderDashboard() {
 
   const handleBookRide = async (ride) => {
     try {
-      await axios.post(`${API}/bookings`, { ride_id: ride.id, passenger_id: userId });
-      setMessage('✅ Ride booked! Waiting for driver to accept...');
-      fetchAll(); setActiveTab('rides');
-      setTimeout(() => setMessage(''), 4000);
+      initializePaystackPayment({
+        email: profile.email || 'rider@ryde.com',
+        amount: parseFloat(ride.price),
+        onSuccess: async (reference) => {
+          await axios.post(`${API}/bookings`, { ride_id: ride.id, passenger_id: userId, payment_reference: reference });
+          setMessage('✅ Payment successful! Ride booked!');
+          sendNotification('✅ Booking Confirmed!', `Your ride from ${ride.from_location} to ${ride.to_location} has been booked!`);
+          setNotifications(prev => [{ message: `Ride booked from ${ride.from_location} to ${ride.to_location}`, icon: '🎫', time: new Date().toLocaleTimeString(), read: false }, ...prev]);
+          fetchAll(); setActiveTab('rides');
+          setTimeout(() => setMessage(''), 4000);
+        },
+        onCancel: () => {
+          setMessage('❌ Payment cancelled.');
+          setTimeout(() => setMessage(''), 3000);
+        },
+      });
     } catch (e) { setMessage('❌ Error booking ride.'); }
   };
 
@@ -337,7 +356,7 @@ function RiderDashboard() {
       {activeTrip && (tripStatus === 'accepted' || tripStatus === 'started') && (
         <div style={styles.tripScreen}>
           <div style={styles.tripMap}>
-            <MapContainer center={riderPos || [5.6037, -0.1870]} zoom={15} style={{ height: '100%', width: '100%' }} zoomControl={true}>
+            <MapContainer center={riderPos || [5.6037, -0.1870]} zoom={14} style={{ height: '100%', width: '100%' }} zoomControl={false}>
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
               <TripMap riderPos={riderPos} pickupLat={activeTrip.from_lat} pickupLng={activeTrip.from_lng} dropoffLat={activeTrip.to_lat} dropoffLng={activeTrip.to_lng} status={tripStatus} onRouteInfo={setRouteInfo} />
             </MapContainer>
@@ -372,7 +391,6 @@ function RiderDashboard() {
               <button style={styles.voiceBtn} onClick={() => speak(tripStatus === 'accepted' ? `Your driver ${activeTrip.driver_name} is coming to pick you up. Estimated ${routeInfo?.durationMins || ''} minutes.` : `You are heading to ${activeTrip.to_location}. Estimated ${routeInfo?.durationMins || ''} minutes.`)}>🔊 Voice</button>
               <button style={styles.msgDriverTripBtn} onClick={() => { setShowTripChat(true); fetchTripChatMessages(activeTrip.driver_id); }}>💬 Message Driver</button>
             </div>
-
             {showTripChat && (
               <div style={styles.tripChatOverlay}>
                 <div style={styles.tripChatHeader}>
@@ -382,12 +400,7 @@ function RiderDashboard() {
                 <div style={styles.tripChatMessages}>
                   {tripChatMessages.length === 0 && <p style={{textAlign:'center',color:'#aaa',fontSize:'13px',padding:'20px'}}>No messages yet. Say hello! 👋</p>}
                   {tripChatMessages.map(msg => (
-                    <div key={msg.id} style={{
-                      ...styles.msgBubble,
-                      alignSelf: String(msg.sender_id) === String(userId) ? 'flex-end' : 'flex-start',
-                      backgroundColor: String(msg.sender_id) === String(userId) ? '#34a853' : '#f1f3f4',
-                      color: String(msg.sender_id) === String(userId) ? 'white' : '#333'
-                    }}>
+                    <div key={msg.id} style={{...styles.msgBubble, alignSelf: String(msg.sender_id) === String(userId) ? 'flex-end' : 'flex-start', backgroundColor: String(msg.sender_id) === String(userId) ? '#34a853' : '#f1f3f4', color: String(msg.sender_id) === String(userId) ? 'white' : '#333'}}>
                       <p style={{margin:0, fontSize:'14px'}}>{msg.message}</p>
                     </div>
                   ))}
@@ -423,21 +436,12 @@ function RiderDashboard() {
           <div style={styles.suggestions}>
             <p style={styles.suggestTitle}>Popular Routes</p>
             {[
-  ['Accra','Kasoa'],
-  ['Accra','Tema'],
-  ['Accra','Kumasi'],
-  ['Manhean','Accra'],
-  ['Manhean','Madina'],
-  ['Manhean','Dodowa'],
-  ['Ablekuma','Kasoa'],
-  ['Ablekuma','Accra'],
-  ['Lapaz','Accra'],
-  ['Lapaz','Dodowa'],
-  ['Kaneshie','Kasoa'],
-  ['Accra','Cape Coast'],
-  ['Accra','Takoradi'],
-  ['Accra','Tamale'],
-].map(([from,to]) => (
+              ['Accra','Kasoa'],['Accra','Tema'],['Accra','Kumasi'],
+              ['Manhean','Accra'],['Manhean','Madina'],['Manhean','Dodowa'],
+              ['Ablekuma','Kasoa'],['Ablekuma','Accra'],
+              ['Lapaz','Accra'],['Lapaz','Dodowa'],
+              ['Kaneshie','Kasoa'],['Accra','Cape Coast'],
+            ].map(([from,to]) => (
               <button key={from+to} style={styles.suggestItem} onClick={() => { setFromCity(from); setToCity(to); }}>
                 <span style={styles.suggestIcon}>🕐</span>
                 <span style={styles.suggestText}>{from} → {to}</span>
@@ -461,7 +465,10 @@ function RiderDashboard() {
               <img src="/logo.png" alt="Ryde" style={{ width: '28px', height: '28px', borderRadius: '50%', marginRight: '6px', objectFit: 'cover' }} />
               Ryde
             </div>
-            {profile.profile_picture ? <img src={profile.profile_picture} alt="" style={styles.homeAvatar} onClick={() => setActiveTab('account')} /> : <div style={styles.homeAvatarPlaceholder} onClick={() => setActiveTab('account')}>{userName?.charAt(0)}</div>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <NotificationBell notifications={notifications} onClear={() => setNotifications([])} />
+              {profile.profile_picture ? <img src={profile.profile_picture} alt="" style={styles.homeAvatar} onClick={() => setActiveTab('account')} /> : <div style={styles.homeAvatarPlaceholder} onClick={() => setActiveTab('account')}>{userName?.charAt(0)}</div>}
+            </div>
           </div>
           <div style={styles.homeBottomSheet}>
             <button style={styles.whereToBar} onClick={() => setShowSearch(true)}>
@@ -603,13 +610,7 @@ function RiderDashboard() {
                   <button style={styles.msgBtnSmall} onClick={() => openChatWithDriver(booking.driver_id, booking.driver_name)}>💬 Message Driver</button>
                 </div>
                 <div style={styles.tripFooter}>
-                  <span style={{...styles.statusBadge,
-                    backgroundColor:
-                      booking.booking_status === 'pending' ? '#f9a825' :
-                      booking.booking_status === 'accepted' ? '#34a853' :
-                      booking.booking_status === 'started' ? '#1a73e8' :
-                      booking.booking_status === 'completed' ? '#34a853' : '#888'
-                  }}>{booking.booking_status}</span>
+                  <span style={{...styles.statusBadge, backgroundColor: booking.booking_status === 'pending' ? '#f9a825' : booking.booking_status === 'accepted' ? '#34a853' : booking.booking_status === 'started' ? '#1a73e8' : booking.booking_status === 'completed' ? '#34a853' : '#888'}}>{booking.booking_status}</span>
                   <div style={styles.tripActionBtns}>
                     {booking.booking_status === 'pending' && <button style={styles.cancelBtn} onClick={() => handleCancelBooking(booking.id)}>Cancel</button>}
                     {booking.booking_status === 'completed' && <button style={styles.rateBtn} onClick={() => setSelectedRide(booking)}>⭐ Rate</button>}

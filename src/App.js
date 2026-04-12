@@ -7,6 +7,7 @@ import DriverDashboard from './pages/DriverDashboard';
 import RiderDashboard from './pages/RiderDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import PostRide from './pages/PostRide';
+import ForgotPassword from './pages/ForgotPassword';
 import { registerServiceWorker, requestNotificationPermission } from './utils/notifications';
 
 function App() {
@@ -21,6 +22,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/driver" element={<DriverDashboard />} />
         <Route path="/rider" element={<RiderDashboard />} />
         <Route path="/admin" element={<AdminDashboard />} />

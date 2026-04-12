@@ -1,3 +1,4 @@
+import ChangePassword from '../components/ChangePassword';
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -708,6 +709,7 @@ function RiderDashboard() {
               { icon: '🆘', label: 'Help Center', id: 'help' },
               { icon: '🛡️', label: 'Safety', id: 'safety' },
               { icon: '🔒', label: 'Privacy & Security', id: 'privacy' },
+              { icon: '🔑', label: 'Change Password', id: 'change-password' },
             ].map(item => (
               <button key={item.id} style={styles.accountMenuItem} onClick={() => setActiveTab(item.id)}>
                 <span style={styles.menuIcon}>{item.icon}</span>
@@ -847,8 +849,30 @@ function RiderDashboard() {
         </div>
       )}
 
+      {activeTab === 'change-password' && (
+        <div style={styles.screen}>
+          <div style={styles.screenHeader}>
+            <button style={styles.backBtn} onClick={() => setActiveTab('account')}>←</button>
+            <h2 style={styles.screenTitle}>Change Password 🔑</h2>
+          </div>
+          <div style={styles.content}>
+            <ChangePassword userId={userId} />
+          </div>
+        </div>
+      )}
+
       {['home','rides','messages','account','results'].includes(activeTab) && !showSearch && !(activeTrip && (tripStatus === 'accepted' || tripStatus === 'started')) && (
-        <div style={styles.bottomNav}>
+  <div style={styles.screen}>
+    <div style={styles.screenHeader}>
+      <button style={styles.backBtn} onClick={() => setActiveTab('account')}>←</button>
+      <h2 style={styles.screenTitle}>Change Password 🔑</h2>
+    </div>
+    <div style={styles.content}>
+      <ChangePassword userId={userId} />
+    </div>
+  </div>
+)}
+<div style={styles.bottomNav}>
           {bottomTabs.map(tab => (
             <button key={tab.id} style={{...styles.navBtn, color: activeTab === tab.id ? '#34a853' : '#888'}} onClick={() => setActiveTab(tab.id)}>
               <span style={styles.navIcon}>{tab.icon}</span>

@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { initializePaystackPayment } from '../utils/payment';
 
 const API = 'https://rideshare-backend-production-32f5.up.railway.app';
 
@@ -183,13 +184,31 @@ if (activeTrip.status === 'started' && prevTripStatus !== 'started') {
   };
 
   const handleBookRide = async (ride) => {
-    try {
-      await axios.post(`${API}/bookings`, { ride_id: ride.id, passenger_id: userId });
-      setMessage('✅ Ride booked! Waiting for driver to accept...');
-      fetchAll(); setActiveTab('rides');
-      setTimeout(() => setMessage(''), 4000);
-    } catch (e) { setMessage('❌ Error booking ride.'); }
-  };
+  try {
+    initializePaystackPayment({
+      email: profile.email || 'rider@ryde.com',
+      amount: parseFloat(ride.price),
+      onSuccess: async (reference) => {
+        await axios.post(`${API}/bookings`, {
+          ride_id: ride.id,
+          passenger_id: userId,
+          payment_reference: reference,
+        });
+        setMessage('✅ Payment successful! Ride booked. Waiting for driver to accept...');
+        sendNotification('✅ Booking Confirmed!', `Your ride from ${ride.from_location} to ${ride.to_location} has been booked!`);
+        fetchAll();
+        setActiveTab('rides');
+        setTimeout(() => setMessage(''), 4000);
+      },
+      onCancel: () => {
+        setMessage('❌ Payment cancelled.');
+        setTimeout(() => setMessage(''), 3000);
+      },
+    });
+  } catch (e) {
+    setMessage('❌ Error booking ride.');
+  }
+};
 
   const handleCancelBooking = async (bookingId) => {
     await axios.put(`${API}/bookings/${bookingId}/cancel`);

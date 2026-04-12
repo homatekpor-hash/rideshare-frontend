@@ -4,7 +4,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { sendNotification } from '../utils/notifications';
 import { connectWebSocket, disconnectWebSocket, sendNotification } from '../utils/notifications';
 const API = 'https://rideshare-backend-production-32f5.up.railway.app';
 

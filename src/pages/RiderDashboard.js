@@ -144,7 +144,7 @@ if (activeTrip.status === 'started' && prevTripStatus !== 'started') {
   sendNotification('🚦 Trip Started!', `You are heading to ${activeTrip.to_location}.`);
 }
     setPrevTripStatus(activeTrip.status);
-  }, [activeTrip?.status]);
+  }, [activeTrip]);
 
   const fetchAll = async () => {
     try {

@@ -171,7 +171,13 @@ function DriverDashboard() {
     if (requests.length > prevRequestCount.current && requests.length > 0) {
       playSound('request');
       speak(`New ride request from ${requests[0].passenger_name}. From ${requests[0].from_location} to ${requests[0].to_location}.`);
-    }
+    }useEffect(() => {
+  if (driverPos && targetLat && targetLng) {
+    fetchRoute();
+    const routeInterval = setInterval(fetchRoute, 15000);
+    return () => clearInterval(routeInterval);
+  }
+}, [driverPos, targetLat, targetLng]);
     prevRequestCount.current = requests.length;
   }, [requests]);
   useEffect(() => {

@@ -51,7 +51,7 @@ function TripMap({ riderPos, pickupLat, pickupLng, dropoffLat, dropoffLng, statu
   const [routeCoords, setRouteCoords] = useState([]);
 
   useEffect(() => {
-    if (riderPos) map.setView(riderPos, 14);
+    if (riderPos) map.setView(riderPos, 15);
   }, [riderPos]);
 
   useEffect(() => {
@@ -68,22 +68,33 @@ function TripMap({ riderPos, pickupLat, pickupLng, dropoffLat, dropoffLng, statu
           const durationMins = Math.round(data.routes[0].duration / 60);
           const distanceKm = (data.routes[0].distance / 1000).toFixed(1);
           if (onRouteInfo) onRouteInfo({ durationMins, distanceKm });
-          if (coords.length > 1) map.fitBounds(coords, { padding: [50, 50] });
+          map.setView(start, 15);
         }
       } catch (e) { console.error('Route error:', e); }
     };
-    if (riderPos && ((pickupLat && pickupLng) || (dropoffLat && dropoffLng))) fetchRoute();
+
+    if (riderPos && ((pickupLat && pickupLng) || (dropoffLat && dropoffLng))) {
+      fetchRoute();
+      const routeInterval = setInterval(fetchRoute, 15000);
+      return () => clearInterval(routeInterval);
+    }
   }, [riderPos, pickupLat, pickupLng, dropoffLat, dropoffLng, status]);
 
   const greenDot = L.divIcon({ html: `<div style="background:#34a853;width:18px;height:18px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)"></div>`, className: '', iconSize: [18,18], iconAnchor: [9,9] });
   const redDot = L.divIcon({ html: `<div style="background:#ea4335;width:18px;height:18px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)"></div>`, className: '', iconSize: [18,18], iconAnchor: [9,9] });
+  const riderIcon = L.divIcon({ html: `<div style="background:#1a73e8;width:20px;height:20px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.4)"></div>`, className: '', iconSize: [20,20], iconAnchor: [10,10] });
 
   return (
     <>
-      {riderPos && <Marker position={riderPos} />}
+      {riderPos && <Marker position={riderPos} icon={riderIcon} />}
       {pickupLat && pickupLng && <Marker position={[pickupLat, pickupLng]} icon={greenDot} />}
       {dropoffLat && dropoffLng && <Marker position={[dropoffLat, dropoffLng]} icon={redDot} />}
-      {routeCoords.length > 0 && <Polyline positions={routeCoords} color={status === 'accepted' ? '#34a853' : '#1a73e8'} weight={5} opacity={0.8} />}
+      {routeCoords.length > 0 && (
+        <>
+          <Polyline positions={routeCoords} color="#ccc" weight={7} opacity={0.5} />
+          <Polyline positions={routeCoords} color={status === 'accepted' ? '#34a853' : '#1a73e8'} weight={5} opacity={0.9} />
+        </>
+      )}
     </>
   );
 }
@@ -126,12 +137,13 @@ function RiderDashboard() {
     if (!userId || localStorage.getItem('userRole') !== 'rider') { navigate('/login'); return; }
     fetchAll();
     fetchActiveTrip();
-    navigator.geolocation.getCurrentPosition(
+    const watchId = navigator.geolocation.watchPosition(
       (pos) => setRiderPos([pos.coords.latitude, pos.coords.longitude]),
-      () => setRiderPos([5.6037, -0.1870])
+      () => setRiderPos([5.6037, -0.1870]),
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
     );
     const interval = setInterval(() => { fetchActiveTrip(); }, 5000);
-    return () => clearInterval(interval);
+    return () => { clearInterval(interval); navigator.geolocation.clearWatch(watchId); };
   }, []);
 
   useEffect(() => {
@@ -314,7 +326,7 @@ function RiderDashboard() {
       {activeTrip && (tripStatus === 'accepted' || tripStatus === 'started') && (
         <div style={styles.tripScreen}>
           <div style={styles.tripMap}>
-            <MapContainer center={riderPos || [5.6037, -0.1870]} zoom={14} style={{ height: '100%', width: '100%' }} zoomControl={false}>
+            <MapContainer center={riderPos || [5.6037, -0.1870]} zoom={15} style={{ height: '100%', width: '100%' }} zoomControl={true}>
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
               <TripMap riderPos={riderPos} pickupLat={activeTrip.from_lat} pickupLng={activeTrip.from_lng} dropoffLat={activeTrip.to_lat} dropoffLng={activeTrip.to_lng} status={tripStatus} onRouteInfo={setRouteInfo} />
             </MapContainer>
@@ -350,7 +362,6 @@ function RiderDashboard() {
               <button style={styles.msgDriverTripBtn} onClick={() => { setShowTripChat(true); fetchTripChatMessages(activeTrip.driver_id); }}>💬 Message Driver</button>
             </div>
 
-            {/* In-Trip Chat */}
             {showTripChat && (
               <div style={styles.tripChatOverlay}>
                 <div style={styles.tripChatHeader}>

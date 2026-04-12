@@ -59,7 +59,10 @@ const speak = (text) => {
 function NavigationMap({ driverPos, targetLat, targetLng, color, onRouteInfo }) {
   const map = useMap();
   const [routeCoords, setRouteCoords] = useState([]);
-  const [nextInstruction, setNextInstruction] = useState('');
+
+  useEffect(() => {
+    if (driverPos) map.setView(driverPos, 16);
+  }, [driverPos]);
 
   useEffect(() => {
     const fetchRoute = async () => {
@@ -67,7 +70,7 @@ function NavigationMap({ driverPos, targetLat, targetLng, color, onRouteInfo }) 
         const start = driverPos || [5.6037, -0.1870];
         if (!targetLat || !targetLng) return;
         const res = await fetch(
-          `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${targetLng},${targetLat}?overview=full&geometries=geojson&steps=true`
+          `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${targetLng},${targetLat}?overview=full&geometries=geojson`
         );
         const data = await res.json();
         if (data.routes && data.routes[0]) {
@@ -76,20 +79,15 @@ function NavigationMap({ driverPos, targetLat, targetLng, color, onRouteInfo }) 
           const durationMins = Math.round(data.routes[0].duration / 60);
           const distanceKm = (data.routes[0].distance / 1000).toFixed(1);
           if (onRouteInfo) onRouteInfo({ durationMins, distanceKm });
-          // Get next turn instruction
-          const steps = data.routes[0].legs[0]?.steps;
-          if (steps && steps.length > 0) {
-            const nextStep = steps[0];
-            const maneuver = nextStep.maneuver?.type || '';
-            const modifier = nextStep.maneuver?.modifier || '';
-            const distance = Math.round(nextStep.distance);
-            setNextInstruction(`${modifier ? modifier + ' ' : ''}${maneuver} in ${distance}m`);
-          }
-          map.setView(start, 16);
+          map.setView(driverPos || start, 16);
         }
       } catch (e) { console.error('Route error:', e); }
     };
-    if (driverPos && targetLat && targetLng) fetchRoute();
+    if (driverPos && targetLat && targetLng) {
+      fetchRoute();
+      const routeInterval = setInterval(fetchRoute, 15000);
+      return () => clearInterval(routeInterval);
+    }
   }, [driverPos, targetLat, targetLng]);
 
   const targetIcon = L.divIcon({
@@ -98,8 +96,8 @@ function NavigationMap({ driverPos, targetLat, targetLng, color, onRouteInfo }) 
   });
 
   const driverIcon = L.divIcon({
-    html: `<div style="background:#1a73e8;width:22px;height:22px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:12px;">🚗</div>`,
-    className: '', iconSize: [22, 22], iconAnchor: [11, 11],
+    html: `<div style="background:#1a73e8;width:26px;height:26px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:14px;color:white;font-weight:bold;">▲</div>`,
+    className: '', iconSize: [26, 26], iconAnchor: [13, 13],
   });
 
   return (
@@ -108,8 +106,8 @@ function NavigationMap({ driverPos, targetLat, targetLng, color, onRouteInfo }) 
       {targetLat && targetLng && <Marker position={[targetLat, targetLng]} icon={targetIcon} />}
       {routeCoords.length > 0 && (
         <>
-          <Polyline positions={routeCoords} color="#ccc" weight={7} opacity={0.5} />
-          <Polyline positions={routeCoords} color={color} weight={5} opacity={0.9} />
+          <Polyline positions={routeCoords} color="#ccc" weight={8} opacity={0.4} />
+          <Polyline positions={routeCoords} color={color} weight={5} opacity={1} />
         </>
       )}
     </>

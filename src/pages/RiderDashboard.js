@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { sendNotification } from '../utils/notifications';
-eact, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';

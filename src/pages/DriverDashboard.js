@@ -1,3 +1,4 @@
+import { sendNotification } from '../utils/notifications';
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
@@ -150,6 +151,14 @@ function DriverDashboard() {
     }
     prevRequestCount.current = requests.length;
   }, [requests]);
+  useEffect(() => {
+  if (requests.length > prevRequestCount.current && requests.length > 0) {
+    playSound('request');
+    speak(`New ride request from ${requests[0].passenger_name}. From ${requests[0].from_location} to ${requests[0].to_location}.`);
+    sendNotification('🔔 New Ride Request!', `${requests[0].passenger_name} wants a ride from ${requests[0].from_location} to ${requests[0].to_location}.`);
+  }
+  prevRequestCount.current = requests.length;
+}, [requests]);
 
   const fetchAll = async () => {
     try {

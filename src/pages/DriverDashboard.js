@@ -98,7 +98,6 @@ function DriverDashboard() {
   const [isOnline, setIsOnline] = useState(false);
   const [myRides, setMyRides] = useState([]);
   const [earnings, setEarnings] = useState({ totalNet: 0, totalCommission: 0, totalPassengers: 0, earnings: [] });
-  const [notifications, setNotifications] = useState([]);
   const [ratings, setRatings] = useState({ ratings: [], avgRating: 0 });
   const [profile, setProfile] = useState({});
   const [message, setMessage] = useState('');
@@ -154,11 +153,10 @@ function DriverDashboard() {
 
   const fetchAll = async () => {
     try {
-      const [profileRes, ridesRes, earningsRes, notifRes, ratingsRes, referralsRes, docsRes, convsRes] = await Promise.all([
+      const [profileRes, ridesRes, earningsRes, ratingsRes, referralsRes, docsRes, convsRes] = await Promise.all([
         axios.get(`${API}/profile/${userId}`),
         axios.get(`${API}/my-rides/${userId}`),
         axios.get(`${API}/earnings/${userId}`),
-        axios.get(`${API}/notifications/${userId}`),
         axios.get(`${API}/ratings/${userId}`),
         axios.get(`${API}/referrals/${userId}`),
         axios.get(`${API}/driver/documents/${userId}`),
@@ -166,13 +164,12 @@ function DriverDashboard() {
       ]);
       setProfile(profileRes.data.user);
       if (!name) setName(profileRes.data.user.name);
-if (!phone) setPhone(profileRes.data.user.phone || '');
-if (!vehicleNumber) setVehicleNumber(profileRes.data.user.vehicle_number || '');
-if (!vehicleModel) setVehicleModel(profileRes.data.user.vehicle_model || '');
-if (!vehicleColor) setVehicleColor(profileRes.data.user.vehicle_color || '');
+      if (!phone) setPhone(profileRes.data.user.phone || '');
+      if (!vehicleNumber) setVehicleNumber(profileRes.data.user.vehicle_number || '');
+      if (!vehicleModel) setVehicleModel(profileRes.data.user.vehicle_model || '');
+      if (!vehicleColor) setVehicleColor(profileRes.data.user.vehicle_color || '');
       setMyRides(ridesRes.data.rides);
       setEarnings(earningsRes.data);
-      setNotifications(notifRes.data.notifications);
       setRatings(ratingsRes.data);
       setReferrals(referralsRes.data.referrals);
       setDocuments(docsRes.data.documents);
@@ -388,7 +385,6 @@ if (!vehicleColor) setVehicleColor(profileRes.data.user.vehicle_color || '');
     <div style={styles.app}>
       {message && <div style={styles.toast}>{message}</div>}
 
-      {/* Active Trip Navigation */}
       {activeTrip && activeTab === 'home' && (
         <div style={styles.tripScreen}>
           <div style={styles.tripMap}>
@@ -406,20 +402,11 @@ if (!vehicleColor) setVehicleColor(profileRes.data.user.vehicle_color || '');
           <div style={styles.tripPanel}>
             {routeInfo && (
               <div style={styles.etaBar}>
-                <div style={styles.etaItem}>
-                  <p style={styles.etaNum}>{routeInfo.durationMins} min</p>
-                  <p style={styles.etaLbl}>{tripStatus === 'accepted' ? 'To Pickup' : 'To Dropoff'}</p>
-                </div>
+                <div style={styles.etaItem}><p style={styles.etaNum}>{routeInfo.durationMins} min</p><p style={styles.etaLbl}>{tripStatus === 'accepted' ? 'To Pickup' : 'To Dropoff'}</p></div>
                 <div style={styles.etaDivider} />
-                <div style={styles.etaItem}>
-                  <p style={styles.etaNum}>{routeInfo.distanceKm} km</p>
-                  <p style={styles.etaLbl}>Distance</p>
-                </div>
+                <div style={styles.etaItem}><p style={styles.etaNum}>{routeInfo.distanceKm} km</p><p style={styles.etaLbl}>Distance</p></div>
                 <div style={styles.etaDivider} />
-                <div style={styles.etaItem}>
-                  <p style={styles.etaNum}>GH₵ {activeTrip.price}</p>
-                  <p style={styles.etaLbl}>Fare</p>
-                </div>
+                <div style={styles.etaItem}><p style={styles.etaNum}>GH₵ {activeTrip.price}</p><p style={styles.etaLbl}>Fare</p></div>
               </div>
             )}
             <div style={styles.tripPassengerRow}>
@@ -450,7 +437,6 @@ if (!vehicleColor) setVehicleColor(profileRes.data.user.vehicle_color || '');
         </div>
       )}
 
-      {/* Ride Requests Popup */}
       {isOnline && requests.length > 0 && !activeTrip && (
         <div style={styles.requestsPopup}>
           <p style={styles.requestsTitle}>🔔 New Ride Requests ({requests.length})</p>
@@ -483,7 +469,6 @@ if (!vehicleColor) setVehicleColor(profileRes.data.user.vehicle_color || '');
         </div>
       )}
 
-      {/* HOME TAB */}
       {activeTab === 'home' && !activeTrip && (
         <div style={styles.homeScreen}>
           <div style={styles.fullMap}>
@@ -508,6 +493,10 @@ if (!vehicleColor) setVehicleColor(profileRes.data.user.vehicle_color || '');
                 <p style={styles.topRole}>🚗 {profile.vehicle_number || 'Driver'}</p>
               </div>
             </div>
+            <div style={styles.homeTitle}>
+              <img src="/logo.png" alt="Ryde" style={{ width: '26px', height: '26px', borderRadius: '50%', marginRight: '6px', objectFit: 'cover' }} />
+              Ryde
+            </div>
             <div style={{...styles.statusPill, backgroundColor: isOnline ? '#34a853' : '#666'}}>{isOnline ? '🟢 Online' : '⚫ Offline'}</div>
           </div>
           <div style={styles.bottomPanel}>
@@ -528,12 +517,11 @@ if (!vehicleColor) setVehicleColor(profileRes.data.user.vehicle_color || '');
         </div>
       )}
 
-      {/* RIDES TAB */}
       {activeTab === 'rides' && (
         <div style={styles.screen}>
           <div style={styles.screenHeader}><h2 style={styles.screenTitle}>My Rides 🚗</h2><Link to="/post-ride" style={styles.addBtn}>+ New</Link></div>
           <div style={styles.content}>
-            {myRides.length === 0 ? <p style={styles.empty}>No rides posted yet.</p> : myRides.map(ride => (
+            {myRides.length === 0 ? <p style={styles.emptyText}>No rides posted yet.</p> : myRides.map(ride => (
               <div key={ride.id} style={styles.card}>
                 <p style={styles.cardRoute}>📍 {ride.from_location} → {ride.to_location}</p>
                 <p style={styles.cardDetail}>🕐 {ride.departure_time} | 💺 {ride.seats_available} seats | GH₵ {ride.price}</p>
@@ -547,7 +535,6 @@ if (!vehicleColor) setVehicleColor(profileRes.data.user.vehicle_color || '');
         </div>
       )}
 
-      {/* EARNINGS TAB */}
       {activeTab === 'earnings' && (
         <div style={styles.screen}>
           <div style={styles.screenHeader}><h2 style={styles.screenTitle}>Earnings 💰</h2></div>
@@ -571,7 +558,6 @@ if (!vehicleColor) setVehicleColor(profileRes.data.user.vehicle_color || '');
         </div>
       )}
 
-      {/* MESSAGES TAB */}
       {activeTab === 'messages' && (
         <div style={styles.screen}>
           <div style={styles.screenHeader}><h2 style={styles.screenTitle}>Messages 💬</h2></div>
@@ -614,7 +600,6 @@ if (!vehicleColor) setVehicleColor(profileRes.data.user.vehicle_color || '');
         </div>
       )}
 
-      {/* MENU TAB */}
       {activeTab === 'menu' && (
         <div style={styles.screen}>
           <div style={styles.menuHeader}>
@@ -643,7 +628,6 @@ if (!vehicleColor) setVehicleColor(profileRes.data.user.vehicle_color || '');
         </div>
       )}
 
-      {/* RATE PASSENGER TAB */}
       {activeTab === 'rate-passenger' && (
         <div style={styles.screen}>
           <div style={styles.screenHeader}><button style={styles.backBtn} onClick={() => setActiveTab('menu')}>←</button><h2 style={styles.screenTitle}>Rate a Passenger ⭐</h2></div>
@@ -674,7 +658,6 @@ if (!vehicleColor) setVehicleColor(profileRes.data.user.vehicle_color || '');
         </div>
       )}
 
-      {/* DOCUMENTS TAB */}
       {activeTab === 'documents' && (
         <div style={styles.screen}>
           <div style={styles.screenHeader}><button style={styles.backBtn} onClick={() => setActiveTab('menu')}>←</button><h2 style={styles.screenTitle}>Documents 📄</h2></div>
@@ -718,7 +701,6 @@ if (!vehicleColor) setVehicleColor(profileRes.data.user.vehicle_color || '');
         </div>
       )}
 
-      {/* REFERRALS TAB */}
       {activeTab === 'referrals' && (
         <div style={styles.screen}>
           <div style={styles.screenHeader}><button style={styles.backBtn} onClick={() => setActiveTab('menu')}>←</button><h2 style={styles.screenTitle}>Referrals 👥</h2></div>
@@ -735,7 +717,6 @@ if (!vehicleColor) setVehicleColor(profileRes.data.user.vehicle_color || '');
         </div>
       )}
 
-      {/* HELP TAB */}
       {activeTab === 'help' && (
         <div style={styles.screen}>
           <div style={styles.screenHeader}><button style={styles.backBtn} onClick={() => setActiveTab('menu')}>←</button><h2 style={styles.screenTitle}>Help Center 🆘</h2></div>
@@ -752,7 +733,6 @@ if (!vehicleColor) setVehicleColor(profileRes.data.user.vehicle_color || '');
         </div>
       )}
 
-      {/* SETTINGS TAB */}
       {activeTab === 'settings' && (
         <div style={styles.screen}>
           <div style={styles.screenHeader}><button style={styles.backBtn} onClick={() => setActiveTab('menu')}>←</button><h2 style={styles.screenTitle}>Settings ⚙️</h2></div>
@@ -766,7 +746,6 @@ if (!vehicleColor) setVehicleColor(profileRes.data.user.vehicle_color || '');
               <input style={styles.input} type="text" placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} />
               <input style={styles.input} type="text" placeholder="Phone Number" value={phone} onChange={(e) => setPhone(e.target.value)} />
             </div>
-
             <div style={styles.card}>
               <p style={styles.sectionTitle}>🚗 Vehicle Information</p>
               <input style={styles.input} type="text" placeholder="Vehicle Plate Number (e.g. GR 1234-23)" value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} />
@@ -774,7 +753,6 @@ if (!vehicleColor) setVehicleColor(profileRes.data.user.vehicle_color || '');
               <input style={styles.input} type="text" placeholder="Vehicle Color (e.g. Blue)" value={vehicleColor} onChange={(e) => setVehicleColor(e.target.value)} />
               <button style={styles.submitBtn} onClick={handleUpdateProfile}>Save All Changes</button>
             </div>
-
             <div style={styles.card}>
               <p style={styles.sectionTitle}>📋 Account Info</p>
               <p style={styles.infoRow}>📧 {profile.email}</p>
@@ -783,13 +761,11 @@ if (!vehicleColor) setVehicleColor(profileRes.data.user.vehicle_color || '');
               <p style={styles.infoRow}>🚗 Plate: {profile.vehicle_number || 'Not set'}</p>
               <p style={styles.infoRow}>🚙 Model: {profile.vehicle_model || 'Not set'}</p>
               <p style={styles.infoRow}>🎨 Color: {profile.vehicle_color || 'Not set'}</p>
-              <p style={styles.infoRow}>🔒 Your data is encrypted and secure</p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Bottom Nav */}
       {['home','rides','earnings','messages','menu'].includes(activeTab) && !activeTrip && (
         <div style={styles.bottomNav}>
           {bottomTabs.map(tab => (
@@ -860,6 +836,7 @@ const styles = {
   topAvatarPlaceholder: { width: '38px', height: '38px', borderRadius: '50%', backgroundColor: '#1a73e8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 'bold', color: 'white' },
   topName: { margin: 0, fontWeight: 'bold', fontSize: '14px', color: '#333' },
   topRole: { margin: 0, fontSize: '11px', color: '#888' },
+  homeTitle: { display: 'flex', alignItems: 'center', fontSize: '15px', fontWeight: 'bold', color: '#333', backgroundColor: '#f0f4f8', padding: '6px 14px', borderRadius: '20px' },
   statusPill: { padding: '6px 14px', borderRadius: '20px', color: 'white', fontSize: '12px', fontWeight: 'bold' },
   bottomPanel: { position: 'absolute', bottom: '60px', left: 0, right: 0, backgroundColor: 'white', borderRadius: '24px 24px 0 0', padding: '20px', zIndex: 1000, boxShadow: '0 -4px 20px rgba(0,0,0,0.1)' },
   liveStats: { display: 'flex', justifyContent: 'space-around', alignItems: 'center', marginBottom: '16px', paddingBottom: '16px', borderBottom: '1px solid #f0f0f0' },
@@ -949,7 +926,6 @@ const styles = {
   settingsAvatar: { width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover' },
   settingsAvatarPlaceholder: { width: '64px', height: '64px', borderRadius: '50%', backgroundColor: '#1a73e8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', fontWeight: 'bold', color: 'white' },
   infoRow: { fontSize: '14px', color: '#555', margin: '0 0 10px 0' },
-  emptyText: { textAlign: 'center', color: '#aaa', padding: '24px', fontSize: '14px' },
   bottomNav: { position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '480px', backgroundColor: 'white', display: 'flex', borderTop: '1px solid #f0f0f0', zIndex: 2000, boxShadow: '0 -2px 10px rgba(0,0,0,0.08)' },
   navBtn: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', padding: '8px 4px', background: 'none', border: 'none', cursor: 'pointer', position: 'relative' },
   navIcon: { fontSize: '22px' },

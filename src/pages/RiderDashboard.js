@@ -133,16 +133,17 @@ function RiderDashboard() {
   }, []);
 
   useEffect(() => {
+    if (!activeTrip) return;
     if (activeTrip.status === 'accepted' && prevTripStatus !== 'accepted') {
-  playSound('accepted');
-  speak(`Your driver ${activeTrip.driver_name} has accepted your booking and is on the way to pick you up at ${activeTrip.from_location}.`);
-  sendNotification('🚗 Driver Accepted!', `${activeTrip.driver_name} is on the way to pick you up at ${activeTrip.from_location}.`);
-}
-if (activeTrip.status === 'started' && prevTripStatus !== 'started') {
-  playSound('started');
-  speak(`Your trip has started. You are heading to ${activeTrip.to_location}.`);
-  sendNotification('🚦 Trip Started!', `You are heading to ${activeTrip.to_location}.`);
-}
+      playSound('accepted');
+      speak(`Your driver ${activeTrip.driver_name} has accepted your booking and is on the way to pick you up at ${activeTrip.from_location}.`);
+      sendNotification('🚗 Driver Accepted!', `${activeTrip.driver_name} is on the way to pick you up at ${activeTrip.from_location}.`);
+    }
+    if (activeTrip.status === 'started' && prevTripStatus !== 'started') {
+      playSound('started');
+      speak(`Your trip has started. You are heading to ${activeTrip.to_location}.`);
+      sendNotification('🚦 Trip Started!', `You are heading to ${activeTrip.to_location}.`);
+    }
     setPrevTripStatus(activeTrip.status);
   }, [activeTrip]);
 

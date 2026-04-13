@@ -1,4 +1,5 @@
 import SOSButton from '../components/SOSButton';
+import PerformanceScore from '../components/PerformanceScore';
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
@@ -590,6 +591,7 @@ const [showWithdraw, setShowWithdraw] = useState(false);
           <div style={styles.screenHeader}><h2 style={styles.screenTitle}>Earnings 💰</h2></div>
           <div style={styles.content}>
             <div style={styles.earningsCard}>
+              <PerformanceScore userId={userId} />
               <p style={styles.earningsBig}>GH₵ {earnings.totalNet?.toFixed(2) || '0.00'}</p>
               <p style={styles.earningsLbl}>Total received (after 10% commission)</p>
             </div>

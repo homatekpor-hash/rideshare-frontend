@@ -708,8 +708,9 @@ function RiderDashboard() {
               { icon: '👥', label: 'Referrals', id: 'referrals' },
               { icon: '🆘', label: 'Help Center', id: 'help' },
               { icon: '🛡️', label: 'Safety', id: 'safety' },
-              { icon: '🔒', label: 'Privacy & Security', id: 'privacy' },
-              { icon: '🔑', label: 'Change Password', id: 'change-password' },
+              { icon: '🔑', label: 'Personal Info & Password', id: 'personal' },
+{ icon: '🔒', label: 'Privacy & Security', id: 'privacy' },
+              
             ].map(item => (
               <button key={item.id} style={styles.accountMenuItem} onClick={() => setActiveTab(item.id)}>
                 <span style={styles.menuIcon}>{item.icon}</span>

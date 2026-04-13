@@ -1,3 +1,4 @@
+import SOSButton from '../components/SOSButton';
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
@@ -796,7 +797,14 @@ function DriverDashboard() {
               <button style={styles.submitBtn} onClick={handleComplaint}>Submit Complaint</button>
             </div>
             {['Verify passenger identity before starting','Share trip details with a trusted contact','Keep emergency contacts saved','Report suspicious activity immediately'].map((tip, i) => (
-              <div key={i} style={styles.tipCard}><p style={styles.tipText}>🛡️ {tip}</p></div>
+             <div style={{...styles.card, backgroundColor: '#fce8e6', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
+  <div>
+    <p style={{...styles.cardRoute, color: '#ea4335'}}>🆘 Emergency SOS</p>
+    <p style={{...styles.cardDetail, color: '#888'}}>Tap to alert Ryde admin immediately</p>
+  </div>
+  <SOSButton userId={userId} />
+</div>
+ <div key={i} style={styles.tipCard}><p style={styles.tipText}>🛡️ {tip}</p></div>
             ))}
           </div>
         </div>

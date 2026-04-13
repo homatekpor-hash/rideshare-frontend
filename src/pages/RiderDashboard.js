@@ -1,4 +1,3 @@
-import ChangePassword from '../components/ChangePassword';
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -8,6 +7,7 @@ import L from 'leaflet';
 import { connectWebSocket, disconnectWebSocket, sendNotification } from '../utils/notifications';
 import { initializePaystackPayment } from '../utils/payment';
 import NotificationBell from '../components/NotificationBell';
+import ChangePassword from '../components/ChangePassword';
 
 const API = 'https://rideshare-backend-production-32f5.up.railway.app';
 
@@ -708,9 +708,7 @@ function RiderDashboard() {
               { icon: '👥', label: 'Referrals', id: 'referrals' },
               { icon: '🆘', label: 'Help Center', id: 'help' },
               { icon: '🛡️', label: 'Safety', id: 'safety' },
-              { icon: '🔑', label: 'Personal Info & Password', id: 'personal' },
-{ icon: '🔒', label: 'Privacy & Security', id: 'privacy' },
-              
+              { icon: '🔒', label: 'Privacy & Security', id: 'privacy' },
             ].map(item => (
               <button key={item.id} style={styles.accountMenuItem} onClick={() => setActiveTab(item.id)}>
                 <span style={styles.menuIcon}>{item.icon}</span>
@@ -728,13 +726,21 @@ function RiderDashboard() {
 
       {activeTab === 'personal' && (
         <div style={styles.screen}>
-          <div style={styles.screenHeader}><button style={styles.backBtn} onClick={() => setActiveTab('account')}>←</button><h2 style={styles.screenTitle}>Personal Info</h2></div>
+          <div style={styles.screenHeader}>
+            <button style={styles.backBtn} onClick={() => setActiveTab('account')}>←</button>
+            <h2 style={styles.screenTitle}>Personal Info</h2>
+          </div>
           <div style={styles.content}>
             <div style={styles.formCard}>
+              <p style={styles.sectionLabel}>👤 Personal Information</p>
               <input style={styles.input} type="text" placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} />
               <input style={styles.input} type="text" placeholder="Phone Number" value={phone} onChange={(e) => setPhone(e.target.value)} />
               <input style={{...styles.input, color: '#888'}} type="email" value={profile.email || ''} disabled />
               <button style={styles.saveBtn} onClick={handleUpdateProfile}>Save Changes</button>
+            </div>
+            <div style={styles.formCard}>
+              <p style={styles.sectionLabel}>🔑 Change Password</p>
+              <ChangePassword userId={userId} />
             </div>
             <div style={styles.formCard}>
               <p style={styles.sectionLabel}>Upload ID Card</p>
@@ -850,30 +856,8 @@ function RiderDashboard() {
         </div>
       )}
 
-      {activeTab === 'change-password' && (
-        <div style={styles.screen}>
-          <div style={styles.screenHeader}>
-            <button style={styles.backBtn} onClick={() => setActiveTab('account')}>←</button>
-            <h2 style={styles.screenTitle}>Change Password 🔑</h2>
-          </div>
-          <div style={styles.content}>
-            <ChangePassword userId={userId} />
-          </div>
-        </div>
-      )}
-
       {['home','rides','messages','account','results'].includes(activeTab) && !showSearch && !(activeTrip && (tripStatus === 'accepted' || tripStatus === 'started')) && (
-  <div style={styles.screen}>
-    <div style={styles.screenHeader}>
-      <button style={styles.backBtn} onClick={() => setActiveTab('account')}>←</button>
-      <h2 style={styles.screenTitle}>Change Password 🔑</h2>
-    </div>
-    <div style={styles.content}>
-      <ChangePassword userId={userId} />
-    </div>
-  </div>
-)}
-<div style={styles.bottomNav}>
+        <div style={styles.bottomNav}>
           {bottomTabs.map(tab => (
             <button key={tab.id} style={{...styles.navBtn, color: activeTab === tab.id ? '#34a853' : '#888'}} onClick={() => setActiveTab(tab.id)}>
               <span style={styles.navIcon}>{tab.icon}</span>
@@ -1048,7 +1032,7 @@ const styles = {
   formCard: { backgroundColor: 'white', borderRadius: '16px', padding: '20px', marginBottom: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
   input: { width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1px solid #eee', fontSize: '14px', outline: 'none', marginBottom: '12px', boxSizing: 'border-box', backgroundColor: '#f8f9fa' },
   saveBtn: { width: '100%', padding: '14px', backgroundColor: '#34a853', color: 'white', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: 'bold', cursor: 'pointer' },
-  sectionLabel: { fontSize: '15px', fontWeight: 'bold', color: '#333', margin: '0 0 8px 0' },
+  sectionLabel: { fontSize: '15px', fontWeight: 'bold', color: '#333', margin: '0 0 12px 0' },
   idPreview: { width: '100%', height: '140px', objectFit: 'cover', borderRadius: '10px', marginBottom: '12px', border: '2px solid #34a853' },
   uploadIdBtn: { display: 'block', textAlign: 'center', padding: '12px', backgroundColor: '#f0fdf4', color: '#34a853', borderRadius: '10px', border: '2px dashed #34a853', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer' },
   walletBigCard: { background: 'linear-gradient(135deg, #34a853, #1e7e34)', borderRadius: '20px', padding: '28px', textAlign: 'center', color: 'white', marginBottom: '20px' },

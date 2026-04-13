@@ -796,16 +796,16 @@ function DriverDashboard() {
               <textarea style={styles.textarea} placeholder="Describe your issue..." value={complaint.message} onChange={(e) => setComplaint({ ...complaint, message: e.target.value })} rows={4} />
               <button style={styles.submitBtn} onClick={handleComplaint}>Submit Complaint</button>
             </div>
+            <div style={{...styles.card, backgroundColor: '#fce8e6', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
+              <div><p style={{...styles.cardRoute, color: '#ea4335'}}>SOS Emergency</p>
+              <p style={{...styles.cardDetail, color: '#888'}}>Tap to alert Ryde admin</p></div>
+              <SOSButton userId={userId} />
+            </div>
             {['Verify passenger identity before starting','Share trip details with a trusted contact','Keep emergency contacts saved','Report suspicious activity immediately'].map((tip, i) => (
-             <div style={{...styles.card, backgroundColor: '#fce8e6', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
-  <div>
-    <p style={{...styles.cardRoute, color: '#ea4335'}}>🆘 Emergency SOS</p>
-    <p style={{...styles.cardDetail, color: '#888'}}>Tap to alert Ryde admin immediately</p>
-  </div>
-  <SOSButton userId={userId} />
-</div>
- <div key={i} style={styles.tipCard}><p style={styles.tipText}>🛡️ {tip}</p></div>
+              <div key={i} style={styles.tipCard}><p style={styles.tipText}>{tip}</p></div>
             ))}
+
+
           </div>
         </div>
       )}

@@ -9,7 +9,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import PostRide from './pages/PostRide';
 import ForgotPassword from './pages/ForgotPassword';
 import { registerServiceWorker, requestNotificationPermission } from './utils/notifications';
-
+import TripShare from './pages/TripShare';
 function App() {
   useEffect(() => {
     registerServiceWorker();
@@ -27,6 +27,7 @@ function App() {
         <Route path="/rider" element={<RiderDashboard />} />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/post-ride" element={<PostRide />} />
+        <Route path="/trip/:bookingId" element={<TripShare />} />
       </Routes>
     </Router>
   );

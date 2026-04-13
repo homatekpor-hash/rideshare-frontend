@@ -10,7 +10,7 @@ import { initializePaystackPayment } from '../utils/payment';
 import NotificationBell from '../components/NotificationBell';
 import ChangePassword from '../components/ChangePassword';
 import DarkModeToggle from '../components/DarkModeToggle';
-
+import WithdrawModal from '../components/WithdrawModal';
 const API = 'https://rideshare-backend-production-32f5.up.railway.app';
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -148,7 +148,7 @@ function DriverDashboard() {
   const [routeInfo, setRouteInfo] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const prevRequestCount = useRef(0);
-
+const [showWithdraw, setShowWithdraw] = useState(false);
   const userId = localStorage.getItem('userId');
   const userName = localStorage.getItem('userName');
   const navigate = useNavigate();
@@ -593,6 +593,17 @@ function DriverDashboard() {
               <p style={styles.earningsBig}>GH₵ {earnings.totalNet?.toFixed(2) || '0.00'}</p>
               <p style={styles.earningsLbl}>Total received (after 10% commission)</p>
             </div>
+            <button style={styles.withdrawBtn2} onClick={() => setShowWithdraw(true)}>
+  💸 Withdraw to Mobile Money
+</button>
+{showWithdraw && (
+  <WithdrawModal
+    userId={userId}
+    balance={earnings.totalNet}
+    onClose={() => setShowWithdraw(false)}
+    onSuccess={(msg) => { setMessage(msg); fetchAll(); setTimeout(() => setMessage(''), 5000); }}
+  />
+)}
             <div style={styles.earningsRow}>
               <div style={styles.earningMini}><p style={styles.earningMiniNum}>GH₵ {earnings.totalCommission?.toFixed(2) || '0.00'}</p><p style={styles.earningMiniLbl}>Commission</p></div>
               <div style={styles.earningMini}><p style={styles.earningMiniNum}>{earnings.totalPassengers || 0}</p><p style={styles.earningMiniLbl}>Passengers</p></div>
@@ -868,6 +879,7 @@ const styles = {
   toast: { position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)', backgroundColor: '#333', color: 'white', padding: '12px 24px', borderRadius: '30px', fontSize: '14px', zIndex: 9999, whiteSpace: 'nowrap', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' },
   tripScreen: { position: 'fixed', top: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '480px', height: '100vh', zIndex: 4000, display: 'flex', flexDirection: 'column' },
   tripMap: { flex: 1 },
+  withdrawBtn2: { width: '100%', padding: '14px', backgroundColor: '#34a853', color: 'white', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: 'bold', cursor: 'pointer', marginBottom: '16px' },
   tripPanel: { backgroundColor: 'white', borderRadius: '24px 24px 0 0', padding: '16px', boxShadow: '0 -4px 20px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', gap: '10px' },
   etaBar: { display: 'flex', justifyContent: 'space-around', alignItems: 'center', backgroundColor: '#1a1a2e', borderRadius: '12px', padding: '12px' },
   etaItem: { textAlign: 'center' },

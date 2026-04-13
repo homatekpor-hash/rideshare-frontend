@@ -1,3 +1,4 @@
+import SOSButton from '../components/SOSButton';
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -389,10 +390,11 @@ function RiderDashboard() {
                 <p style={styles.tripFare}>GH₵ {activeTrip.price}</p>
               </div>
             </div>
-            <div style={styles.tripActionRow}>
-              <button style={styles.voiceBtn} onClick={() => speak(tripStatus === 'accepted' ? `Your driver ${activeTrip.driver_name} is coming to pick you up. Estimated ${routeInfo?.durationMins || ''} minutes.` : `You are heading to ${activeTrip.to_location}. Estimated ${routeInfo?.durationMins || ''} minutes.`)}>🔊 Voice</button>
-              <button style={styles.msgDriverTripBtn} onClick={() => { setShowTripChat(true); fetchTripChatMessages(activeTrip.driver_id); }}>💬 Message Driver</button>
-            </div>
+           <div style={styles.tripActionRow}>
+  <button style={styles.voiceBtn} onClick={() => speak(tripStatus === 'accepted' ? `Your driver ${activeTrip.driver_name} is coming to pick you up. Estimated ${routeInfo?.durationMins || ''} minutes.` : `You are heading to ${activeTrip.to_location}. Estimated ${routeInfo?.durationMins || ''} minutes.`)}>🔊 Voice</button>
+  <SOSButton userId={userId} />
+  <button style={styles.msgDriverTripBtn} onClick={() => { setShowTripChat(true); fetchTripChatMessages(activeTrip.driver_id); }}>💬 Message Driver</button>
+</div>
             {showTripChat && (
               <div style={styles.tripChatOverlay}>
                 <div style={styles.tripChatHeader}>
@@ -834,7 +836,13 @@ function RiderDashboard() {
           </div>
         </div>
       )}
-
+<div style={{...styles.tipCard, backgroundColor: '#fce8e6', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+  <div>
+    <p style={{...styles.tipText, fontWeight: 'bold', color: '#ea4335'}}>🆘 Emergency SOS</p>
+    <p style={{...styles.tipText, fontSize: '12px', color: '#888'}}>Tap to alert Ryde admin</p>
+  </div>
+  <SOSButton userId={userId} />
+</div>
       {activeTab === 'safety' && (
         <div style={styles.screen}>
           <div style={styles.screenHeader}><button style={styles.backBtn} onClick={() => setActiveTab('account')}>←</button><h2 style={styles.screenTitle}>Safety 🛡️</h2></div>
@@ -847,6 +855,7 @@ function RiderDashboard() {
       )}
 
       {activeTab === 'privacy' && (
+        
         <div style={styles.screen}>
           <div style={styles.screenHeader}><button style={styles.backBtn} onClick={() => setActiveTab('account')}>←</button><h2 style={styles.screenTitle}>Privacy & Security 🔒</h2></div>
           <div style={styles.content}>

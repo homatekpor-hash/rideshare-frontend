@@ -8,6 +8,7 @@ import { connectWebSocket, disconnectWebSocket, sendNotification } from '../util
 import { initializePaystackPayment } from '../utils/payment';
 import NotificationBell from '../components/NotificationBell';
 import ChangePassword from '../components/ChangePassword';
+import DarkModeToggle from '../components/DarkModeToggle';
 
 const API = 'https://rideshare-backend-production-32f5.up.railway.app';
 
@@ -743,6 +744,10 @@ function RiderDashboard() {
               <ChangePassword userId={userId} />
             </div>
             <div style={styles.formCard}>
+              <p style={styles.sectionLabel}>?? Appearance</p>
+              <DarkModeToggle />
+            </div>
+            <div style={styles.formCard}>
               <p style={styles.sectionLabel}>Upload ID Card</p>
               {idImage && <img src={idImage} alt="ID" style={styles.idPreview} />}
               <label style={styles.uploadIdBtn}>📄 Upload Ghana Card<input type="file" accept="image/*" onChange={(e) => { const f = e.target.files[0]; if (f) { const r = new FileReader(); r.onloadend = () => setIdImage(r.result); r.readAsDataURL(f); }}} style={{ display: 'none' }} /></label>
@@ -1058,3 +1063,4 @@ const styles = {
 };
 
 export default RiderDashboard;
+

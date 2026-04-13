@@ -8,6 +8,7 @@ import { connectWebSocket, disconnectWebSocket, sendNotification } from '../util
 import { initializePaystackPayment } from '../utils/payment';
 import NotificationBell from '../components/NotificationBell';
 import ChangePassword from '../components/ChangePassword';
+import DarkModeToggle from '../components/DarkModeToggle';
 
 const API = 'https://rideshare-backend-production-32f5.up.railway.app';
 
@@ -826,6 +827,7 @@ function DriverDashboard() {
               <ChangePassword userId={userId} />
             </div>
             <div style={styles.card}>
+              <DarkModeToggle />
               <p style={styles.sectionTitle}>📋 Account Info</p>
               <p style={styles.infoRow}>📧 {profile.email}</p>
               <p style={styles.infoRow}>📅 Joined: {profile.created_at ? new Date(profile.created_at).toLocaleDateString() : ''}</p>
@@ -1014,3 +1016,5 @@ const styles = {
 };
 
 export default DriverDashboard;
+
+

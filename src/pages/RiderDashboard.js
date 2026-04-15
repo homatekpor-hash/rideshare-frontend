@@ -210,7 +210,12 @@ function RiderDashboard() {
       setActiveTrip(res.data.trip);
     } catch (e) {}
   };
-
+const fetchSurge = async () => {
+  try {
+    const res = await axios.get(`${API}/surge`);
+    setSurge(res.data);
+  } catch (e) {}
+};
   const fetchTripChatMessages = async (driverId) => {
     try {
       const res = await axios.get(`${API}/messages/${userId}/${driverId}`);
@@ -354,7 +359,7 @@ function RiderDashboard() {
   ];
 
   const tripStatus = activeTrip?.status;
-
+const [surge, setSurge] = useState({ surgeMultiplier: 1, surgeMessage: '', isSurge: false });
   return (
     <div style={styles.app}>
       {message && <div style={styles.toast}>{message}</div>}
@@ -826,7 +831,11 @@ function RiderDashboard() {
           </div>
         </div>
       )}
-
+{surge.isSurge && (
+  <div style={styles.surgeBanner}>
+    <p style={styles.surgeText}>{surge.surgeMessage}</p>
+  </div>
+)}
       {activeTab === 'help' && (
         <div style={styles.screen}>
           <div style={styles.screenHeader}><button style={styles.backBtn} onClick={() => setActiveTab('account')}>←</button><h2 style={styles.screenTitle}>Help Center 🆘</h2></div>
@@ -893,7 +902,9 @@ const styles = {
   toast: { position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)', backgroundColor: '#333', color: 'white', padding: '12px 24px', borderRadius: '30px', fontSize: '14px', zIndex: 9999, whiteSpace: 'nowrap', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' },
   tripScreen: { position: 'fixed', top: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '480px', height: '100vh', zIndex: 4000, display: 'flex', flexDirection: 'column' },
   tripMap: { flex: 1 },
-  tripPanel: { backgroundColor: 'white', borderRadius: '24px 24px 0 0', padding: '16px', boxShadow: '0 -4px 20px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', gap: '10px', position: 'relative' },
+  surgeBanner: { backgroundColor: '#fce8e6', padding: '12px 16px', borderBottom: '1px solid #f5c6c6', textAlign: 'center' },
+surgeText: { fontSize: '13px', fontWeight: 'bold', color: '#ea4335', margin: 0 },
+tripPanel: { backgroundColor: 'white', borderRadius: '24px 24px 0 0', padding: '16px', boxShadow: '0 -4px 20px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', gap: '10px', position: 'relative' },
   etaBar: { display: 'flex', justifyContent: 'space-around', alignItems: 'center', backgroundColor: '#1a1a2e', borderRadius: '12px', padding: '12px' },
   etaItem: { textAlign: 'center' },
   etaNum: { fontSize: '18px', fontWeight: 'bold', color: 'white', margin: '0 0 2px 0' },

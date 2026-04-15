@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
@@ -78,7 +78,11 @@ const calculateFare = async () => {
   const removeWaypoint = (stop) => {
     setWaypoints(waypoints.filter(w => w !== stop));
   };
+const [surge, setSurge] = useState({ surgeMultiplier: 1, isSurge: false, surgeMessage: '' });
 
+useEffect(() => {
+  axios.get(`${API}/surge`).then(res => setSurge(res.data)).catch(() => {});
+}, []);
   const handleSubmit = async () => {
     if (!fromLocation || !toLocation || !departureTime || !price) {
       setMessage('Please fill in all required fields.');
@@ -184,7 +188,11 @@ const calculateFare = async () => {
                   </div>
                 ))}
               </div>
-            )}
+            )}{surge.isSurge && (
+  <div style={styles.surgeBanner}>
+    <p style={styles.surgeText}>🔥 {surge.surgeMessage} Consider setting higher prices!</p>
+  </div>
+)}
           </div>
 
           {/* To */}
@@ -271,7 +279,9 @@ const styles = {
 calcBtn: { padding: '12px 16px', backgroundColor: '#1a73e8', color: 'white', border: 'none', borderRadius: '10px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', whiteSpace: 'nowrap' },
 container: { minHeight: '100vh', backgroundColor: '#f8f9fa', maxWidth: '480px', margin: '0 auto' },
   header: { backgroundColor: 'white', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', position: 'sticky', top: 0, zIndex: 100 },
-  backBtn: { background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#333', fontWeight: 'bold' },
+  surgeBanner: { backgroundColor: '#fff3e0', padding: '12px 16px', borderRadius: '10px', marginBottom: '12px', textAlign: 'center' },
+surgeText: { fontSize: '13px', fontWeight: 'bold', color: '#f57c00', margin: 0 },
+backBtn: { background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#333', fontWeight: 'bold' },
   title: { fontSize: '20px', fontWeight: 'bold', color: '#333', margin: 0 },
   content: { padding: '16px', paddingBottom: '32px' },
   msgBox: { padding: '14px', borderRadius: '12px', marginBottom: '16px', fontSize: '14px', fontWeight: 'bold', textAlign: 'center' },

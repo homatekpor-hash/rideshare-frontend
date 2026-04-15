@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import BroadcastPanel from '../components/BroadcastPanel';
+import SurgePanel from '../components/SurgePanel';
 const API = 'https://rideshare-backend-production-32f5.up.railway.app';
 
 function AdminDashboard() {
@@ -89,6 +90,7 @@ function AdminDashboard() {
   const tabs = [
     { id: 'dashboard', icon: '📊', label: 'Dashboard' },
     { id: 'users', icon: '👥', label: 'Users' },
+    { id: 'surge', icon: '??', label: 'Surge' },
     { id: 'broadcast', icon: '📢', label: 'Broadcast' },
     { id: 'rides', icon: '🚗', label: 'Rides' },
     { id: 'bookings', icon: '🎫', label: 'Bookings' },
@@ -476,6 +478,12 @@ function AdminDashboard() {
           </div>
         )}
 
+        {activeTab === 'surge' && (
+          <div style={styles.content}>
+            <h1 style={styles.pageTitle}>Surge Pricing</h1>
+            <SurgePanel />
+          </div>
+        )}
         {activeTab === 'broadcast' && (
           <div style={styles.content}>
             <h1 style={styles.pageTitle}>Broadcast Message</h1>
@@ -579,3 +587,6 @@ const styles = {
 };
 
 export default AdminDashboard;
+
+
+

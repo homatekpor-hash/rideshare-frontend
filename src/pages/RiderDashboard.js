@@ -152,7 +152,10 @@ function RiderDashboard() {
         sendNotification('🚗 Booking Accepted!', data.message);
         setNotifications(prev => [{ message: data.message, icon: '🚗', time, read: false }, ...prev]);
         fetchActiveTrip(); fetchAll();
-      }
+      }if (data.type === 'broadcast') {
+  sendNotification(data.title || 'Ryde', data.message);
+  setNotifications(prev => [{ message: data.message, icon: '📢', time: new Date().toLocaleTimeString(), read: false }, ...prev]);
+}
       if (data.type === 'booking_declined') {
         sendNotification('❌ Booking Declined', data.message);
         setNotifications(prev => [{ message: data.message, icon: '❌', time, read: false }, ...prev]);

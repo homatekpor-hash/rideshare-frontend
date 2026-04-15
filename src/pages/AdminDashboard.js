@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-
+import BroadcastPanel from '../components/BroadcastPanel';
 const API = 'https://rideshare-backend-production-32f5.up.railway.app';
 
 function AdminDashboard() {
@@ -89,6 +89,7 @@ function AdminDashboard() {
   const tabs = [
     { id: 'dashboard', icon: '📊', label: 'Dashboard' },
     { id: 'users', icon: '👥', label: 'Users' },
+    { id: 'broadcast', icon: '📢', label: 'Broadcast' },
     { id: 'rides', icon: '🚗', label: 'Rides' },
     { id: 'bookings', icon: '🎫', label: 'Bookings' },
     { id: 'documents', icon: '📄', label: 'Verify' },
@@ -113,7 +114,12 @@ function AdminDashboard() {
             {tab.id === 'documents' && pendingDocs.length > 0 && <span style={styles.sidebarBadge}>{pendingDocs.length}</span>}
             {tab.id === 'complaints' && openComplaints.length > 0 && <span style={styles.sidebarBadge}>{openComplaints.length}</span>}
           </button>
-        ))}
+        ))}{activeTab === 'broadcast' && (
+  <div style={styles.content}>
+    <h1 style={styles.pageTitle}>📢 Broadcast Message</h1>
+    <BroadcastPanel />
+  </div>
+)}
         <button style={styles.logoutBtn} onClick={handleLogout}>🚪 Logout</button>
       </div>
 

@@ -1,7 +1,12 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 function Home() {
+  const navigate = useNavigate();
+  const handleGetStarted = () => {
+    if (localStorage.getItem('onboarded')) { navigate('/register'); }
+    else { navigate('/onboarding'); }
+  };
   return (
     <div style={styles.container}>
       {/* Header */}
@@ -23,7 +28,7 @@ function Home() {
           <h1 style={styles.heroTitle}>Your Journey Awaits</h1>
           <p style={styles.heroSubtitle}>Ghana's smartest ride-sharing app. Connect with drivers going your way across Accra, Kasoa, Tema, Kumasi and beyond.</p>
           <div style={styles.heroBtns}>
-            <Link to="/register" style={styles.heroRegisterBtn}>🚗 Get Started</Link>
+            <button onClick={handleGetStarted} style={{...styles.heroRegisterBtn, border: 'none', cursor: 'pointer'}}>?? Get Started</button>
             <Link to="/login" style={styles.heroLoginBtn}>Login</Link>
           </div>
         </div>
@@ -161,3 +166,5 @@ const styles = {
 };
 
 export default Home;
+
+

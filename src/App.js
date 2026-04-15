@@ -8,6 +8,7 @@ import RiderDashboard from './pages/RiderDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import PostRide from './pages/PostRide';
 import ForgotPassword from './pages/ForgotPassword';
+import Onboarding from './pages/Onboarding';
 import { registerServiceWorker, requestNotificationPermission } from './utils/notifications';
 import TripShare from './pages/TripShare';
 function App() {
@@ -19,6 +20,7 @@ function App() {
   return (
     <Router>
       <Routes>
+        <Route path="/onboarding" element={<Onboarding />} />
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />

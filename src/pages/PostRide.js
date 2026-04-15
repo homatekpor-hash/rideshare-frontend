@@ -41,7 +41,32 @@ function PostRide() {
 
   const getSuggestions = (value) =>
     GHANA_STOPS.filter(s => s.toLowerCase().includes(value.toLowerCase())).slice(0, 5);
-
+const calculateFare = async () => {
+  if (!fromLocation || !toLocation) {
+    setMessage('Please enter from and to locations first.');
+    return;
+  }
+  try {
+    const fromRes = await axios.get(`https://nominatim.openstreetmap.org/search?q=${fromLocation}+Ghana&format=json&limit=1`);
+    const toRes = await axios.get(`https://nominatim.openstreetmap.org/search?q=${toLocation}+Ghana&format=json&limit=1`);
+    if (fromRes.data[0] && toRes.data[0]) {
+      const fareRes = await axios.get(`${API}/calculate-fare`, {
+        params: {
+          from_lat: fromRes.data[0].lat,
+          from_lng: fromRes.data[0].lon,
+          to_lat: toRes.data[0].lat,
+          to_lng: toRes.data[0].lon,
+        }
+      });
+      setPrice(fareRes.data.fare.toString());
+      setMessage(`✅ Suggested fare: GH₵ ${fareRes.data.fare} for ${fareRes.data.distanceKm} km`);
+      setTimeout(() => setMessage(''), 4000);
+    }
+  } catch (e) {
+    setMessage('❌ Could not calculate fare. Enter manually.');
+    setTimeout(() => setMessage(''), 3000);
+  }
+};
   const addWaypoint = (stop) => {
     if (stop && !waypoints.includes(stop)) {
       setWaypoints([...waypoints, stop]);
@@ -219,10 +244,10 @@ function PostRide() {
             </div>
           </div>
 
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Price per Seat (GH₵) *</label>
-            <input style={styles.input} type="number" placeholder="e.g. 5" value={price} onChange={(e) => setPrice(e.target.value)} min="0" />
-          </div>
+          <div style={styles.priceRow}>
+  <input style={{...styles.input, flex: 1}} type="number" placeholder="Price per seat (GH₵)" value={price} onChange={(e) => setPrice(e.target.value)} min="0" />
+  <button style={styles.calcBtn} onClick={calculateFare}>🧮 Auto</button>
+</div>
         </div>
 
         <div style={styles.card}>
@@ -242,7 +267,9 @@ function PostRide() {
 }
 
 const styles = {
-  container: { minHeight: '100vh', backgroundColor: '#f8f9fa', maxWidth: '480px', margin: '0 auto' },
+  priceRow: { display: 'flex', gap: '8px', alignItems: 'center' },
+calcBtn: { padding: '12px 16px', backgroundColor: '#1a73e8', color: 'white', border: 'none', borderRadius: '10px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', whiteSpace: 'nowrap' },
+container: { minHeight: '100vh', backgroundColor: '#f8f9fa', maxWidth: '480px', margin: '0 auto' },
   header: { backgroundColor: 'white', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', position: 'sticky', top: 0, zIndex: 100 },
   backBtn: { background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#333', fontWeight: 'bold' },
   title: { fontSize: '20px', fontWeight: 'bold', color: '#333', margin: 0 },

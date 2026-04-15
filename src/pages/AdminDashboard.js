@@ -114,13 +114,13 @@ function AdminDashboard() {
             {tab.id === 'documents' && pendingDocs.length > 0 && <span style={styles.sidebarBadge}>{pendingDocs.length}</span>}
             {tab.id === 'complaints' && openComplaints.length > 0 && <span style={styles.sidebarBadge}>{openComplaints.length}</span>}
           </button>
-        ))}{activeTab === 'broadcast' && (
-  <div style={styles.content}>
-    <h1 style={styles.pageTitle}>📢 Broadcast Message</h1>
-    <BroadcastPanel />
-  </div>
-)}
-        <button style={styles.logoutBtn} onClick={handleLogout}>🚪 Logout</button>
+        ))}
+
+
+
+
+
+        <button style={styles.logoutBtn} onClick={handleLogout}>?? Logout</button>
       </div>
 
       {/* Main Content */}
@@ -473,6 +473,13 @@ function AdminDashboard() {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'broadcast' && (
+          <div style={styles.content}>
+            <h1 style={styles.pageTitle}>Broadcast Message</h1>
+            <BroadcastPanel />
           </div>
         )}
       </div>

@@ -594,14 +594,13 @@ const [showWithdraw, setShowWithdraw] = useState(false);
           <div style={styles.screenHeader}><h2 style={styles.screenTitle}>Earnings 💰</h2></div>
           <div style={styles.content}>
             <div style={styles.earningsCard}>
-              <PerformanceScore userId={userId} />
               <p style={styles.earningsBig}>GH₵ {earnings.totalNet?.toFixed(2) || '0.00'}</p>
               <p style={styles.earningsLbl}>Total received (after 10% commission)</p>
             </div>
             <button style={styles.withdrawBtn2} onClick={() => setShowWithdraw(true)}>
   💸 Withdraw to Mobile Money
 </button>
-{showWithdraw && (
+            <PerformanceScore userId={userId} />
   <WithdrawModal
     userId={userId}
     balance={earnings.totalNet}
@@ -1041,5 +1040,7 @@ const styles = {
 };
 
 export default DriverDashboard;
+
+
 
 

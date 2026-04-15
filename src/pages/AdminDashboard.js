@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import BroadcastPanel from '../components/BroadcastPanel';
 import SurgePanel from '../components/SurgePanel';
+
 const API = 'https://rideshare-backend-production-32f5.up.railway.app';
 
 function AdminDashboard() {
@@ -484,6 +485,12 @@ function AdminDashboard() {
             <SurgePanel />
           </div>
         )}
+        {activeTab === 'surge' && (
+          <div style={styles.content}>
+            <h1 style={styles.pageTitle}>Surge Pricing</h1>
+            <SurgePanel />
+          </div>
+        )}
         {activeTab === 'broadcast' && (
           <div style={styles.content}>
             <h1 style={styles.pageTitle}>Broadcast Message</h1>
@@ -587,6 +594,8 @@ const styles = {
 };
 
 export default AdminDashboard;
+
+
 
 
 

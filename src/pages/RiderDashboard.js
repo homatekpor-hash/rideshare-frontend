@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { generateReceipt } from '../utils/receiptGenerator';
 import { connectWebSocket, disconnectWebSocket, sendNotification } from '../utils/notifications';
 import { initializePaystackPayment } from '../utils/payment';
 import NotificationBell from '../components/NotificationBell';
@@ -626,6 +627,7 @@ const [surge, setSurge] = useState({ surgeMultiplier: 1, surgeMessage: '', isSur
                   <div style={styles.tripActionBtns}>
                     {booking.booking_status === 'pending' && <button style={styles.cancelBtn} onClick={() => handleCancelBooking(booking.id)}>Cancel</button>}
                     {booking.booking_status === 'completed' && <button style={styles.rateBtn} onClick={() => setSelectedRide(booking)}>⭐ Rate</button>}
+{booking.booking_status === 'completed' && <button style={styles.receiptBtn} onClick={() => generateReceipt(booking)}>🧾 Receipt</button>}
                   </div>
                 </div>
               </div>
@@ -900,6 +902,7 @@ const [surge, setSurge] = useState({ surgeMultiplier: 1, surgeMessage: '', isSur
 const styles = {
   app: { display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#fff', overflow: 'hidden', maxWidth: '480px', margin: '0 auto', position: 'relative' },
   toast: { position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)', backgroundColor: '#333', color: 'white', padding: '12px 24px', borderRadius: '30px', fontSize: '14px', zIndex: 9999, whiteSpace: 'nowrap', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' },
+ receiptBtn: { padding: '6px 14px', backgroundColor: '#1a73e8', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' },
   tripScreen: { position: 'fixed', top: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '480px', height: '100vh', zIndex: 4000, display: 'flex', flexDirection: 'column' },
   tripMap: { flex: 1 },
   surgeBanner: { backgroundColor: '#fce8e6', padding: '12px 16px', borderBottom: '1px solid #f5c6c6', textAlign: 'center' },

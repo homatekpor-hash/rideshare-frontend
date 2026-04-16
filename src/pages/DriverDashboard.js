@@ -1,15 +1,17 @@
-import SOSButton from '../components/SOSButton';
-import PerformanceScore from '../components/PerformanceScore';
 import React, { useState, useEffect, useRef } from 'react';
+import PerformanceScore from '../components/PerformanceScore';
+
 import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+
 import L from 'leaflet';
 import { connectWebSocket, disconnectWebSocket, sendNotification } from '../utils/notifications';
 import { initializePaystackPayment } from '../utils/payment';
 import NotificationBell from '../components/NotificationBell';
 import ChangePassword from '../components/ChangePassword';
+import SOSButton from '../components/SOSButton';
 import DarkModeToggle from '../components/DarkModeToggle';
 import WithdrawModal from '../components/WithdrawModal';
 const API = 'https://rideshare-backend-production-32f5.up.railway.app';
@@ -65,9 +67,14 @@ const speak = (text) => {
 function NavigationMap({ driverPos, targetLat, targetLng, color, onRouteInfo }) {
   const map = useMap();
   const [routeCoords, setRouteCoords] = useState([]);
+  const [steps, setSteps] = useState([]);
+  const [nextStep, setNextStep] = useState(null);
+  const prevPosRef = useRef(null);
 
   useEffect(() => {
-    if (driverPos) map.setView(driverPos, 16);
+    if (driverPos) {
+      map.setView(driverPos, 17, { animate: true });
+    }
   }, [driverPos]);
 
   useEffect(() => {
@@ -75,7 +82,7 @@ function NavigationMap({ driverPos, targetLat, targetLng, color, onRouteInfo }) 
       try {
         const start = driverPos || [5.6037, -0.1870];
         if (!targetLat || !targetLng) return;
-        const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${targetLng},${targetLat}?overview=full&geometries=geojson`);
+        const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${targetLng},${targetLat}?overview=full&geometries=geojson&steps=true`);
         const data = await res.json();
         if (data.routes && data.routes[0]) {
           const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
@@ -83,35 +90,97 @@ function NavigationMap({ driverPos, targetLat, targetLng, color, onRouteInfo }) 
           const durationMins = Math.round(data.routes[0].duration / 60);
           const distanceKm = (data.routes[0].distance / 1000).toFixed(1);
           if (onRouteInfo) onRouteInfo({ durationMins, distanceKm });
-          map.setView(start, 16);
+          const allSteps = data.routes[0].legs[0]?.steps || [];
+          setSteps(allSteps);
+          if (allSteps.length > 0) {
+            const step = allSteps[0];
+            const instruction = getInstruction(step);
+            const distM = Math.round(step.distance);
+            setNextStep({ instruction, distance: distM > 1000 ? `${(distM/1000).toFixed(1)} km` : `${distM} m` });
+            if (distM < 50 && instruction) speak(instruction);
+          }
         }
       } catch (e) { console.error('Route error:', e); }
     };
     if (driverPos && targetLat && targetLng) {
       fetchRoute();
-      const routeInterval = setInterval(fetchRoute, 15000);
-      return () => clearInterval(routeInterval);
+      const interval = setInterval(fetchRoute, 10000);
+      return () => clearInterval(interval);
     }
   }, [driverPos, targetLat, targetLng]);
 
-  const targetIcon = L.divIcon({
-    html: `<div style="background:${color};width:20px;height:20px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)"></div>`,
-    className: '', iconSize: [20, 20], iconAnchor: [10, 10],
-  });
+  const getInstruction = (step) => {
+    if (!step) return '';
+    const maneuver = step.maneuver?.type;
+    const modifier = step.maneuver?.modifier;
+    const name = step.name || 'the road';
+    if (maneuver === 'turn') {
+      if (modifier === 'left') return `Turn left onto ${name}`;
+      if (modifier === 'right') return `Turn right onto ${name}`;
+      if (modifier === 'slight left') return `Slight left onto ${name}`;
+      if (modifier === 'slight right') return `Slight right onto ${name}`;
+      if (modifier === 'sharp left') return `Sharp left onto ${name}`;
+      if (modifier === 'sharp right') return `Sharp right onto ${name}`;
+      if (modifier === 'uturn') return `Make a U-turn`;
+    }
+    if (maneuver === 'depart') return `Head ${modifier} on ${name}`;
+    if (maneuver === 'arrive') return `You have arrived at your destination`;
+    if (maneuver === 'roundabout') return `Enter roundabout`;
+    if (maneuver === 'merge') return `Merge onto ${name}`;
+    if (maneuver === 'straight') return `Continue straight on ${name}`;
+    return `Continue on ${name}`;
+  };
+
+  const getArrow = (step) => {
+    if (!step) return '⬆️';
+    const maneuver = step.maneuver?.type;
+    const modifier = step.maneuver?.modifier;
+    if (maneuver === 'turn') {
+      if (modifier === 'left') return '⬅️';
+      if (modifier === 'right') return '➡️';
+      if (modifier === 'slight left') return '↖️';
+      if (modifier === 'slight right') return '↗️';
+      if (modifier === 'sharp left') return '↩️';
+      if (modifier === 'sharp right') return '↪️';
+      if (modifier === 'uturn') return '🔄';
+    }
+    if (maneuver === 'arrive') return '🏁';
+    if (maneuver === 'roundabout') return '🔄';
+    return '⬆️';
+  };
 
   const driverIcon = L.divIcon({
-    html: `<div style="background:#1a73e8;width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:14px;">🚗</div>`,
+    html: `<div style="background:#1a73e8;width:32px;height:32px;border-radius:50%;border:3px solid white;box-shadow:0 2px 12px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;font-size:18px;">🚗</div>`,
+    className: '', iconSize: [32, 32], iconAnchor: [16, 16],
+  });
+
+  const targetIcon = L.divIcon({
+    html: `<div style="background:${color};width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)"></div>`,
     className: '', iconSize: [24, 24], iconAnchor: [12, 12],
   });
 
   return (
     <>
+      {nextStep && (
+        <div style={{
+          position: 'absolute', top: '10px', left: '10px', right: '10px',
+          backgroundColor: '#1a1a2e', borderRadius: '14px', padding: '12px 16px',
+          zIndex: 1000, display: 'flex', alignItems: 'center', gap: '12px',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.4)'
+        }}>
+          <span style={{ fontSize: '28px' }}>{steps.length > 0 ? getArrow(steps[0]) : '⬆️'}</span>
+          <div>
+            <p style={{ color: 'white', fontWeight: 'bold', fontSize: '15px', margin: '0 0 2px 0' }}>{nextStep.instruction}</p>
+            <p style={{ color: '#34a853', fontSize: '13px', margin: 0, fontWeight: 'bold' }}>In {nextStep.distance}</p>
+          </div>
+        </div>
+      )}
       {driverPos && <Marker position={driverPos} icon={driverIcon} />}
       {targetLat && targetLng && <Marker position={[targetLat, targetLng]} icon={targetIcon} />}
       {routeCoords.length > 0 && (
         <>
-          <Polyline positions={routeCoords} color="#ccc" weight={7} opacity={0.5} />
-          <Polyline positions={routeCoords} color={color} weight={5} opacity={0.9} />
+          <Polyline positions={routeCoords} color="#ccc" weight={8} opacity={0.4} />
+          <Polyline positions={routeCoords} color={color} weight={6} opacity={1} />
         </>
       )}
     </>
@@ -882,9 +951,9 @@ const styles = {
   app: { display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#fff', overflow: 'hidden', maxWidth: '480px', margin: '0 auto', position: 'relative' },
   toast: { position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)', backgroundColor: '#333', color: 'white', padding: '12px 24px', borderRadius: '30px', fontSize: '14px', zIndex: 9999, whiteSpace: 'nowrap', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' },
   tripScreen: { position: 'fixed', top: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '480px', height: '100vh', zIndex: 4000, display: 'flex', flexDirection: 'column' },
-  tripMap: { flex: 1 },
+  tripMap: { flex: 1, position: 'relative' },
   withdrawBtn2: { width: '100%', padding: '14px', backgroundColor: '#34a853', color: 'white', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: 'bold', cursor: 'pointer', marginBottom: '16px' },
-  tripPanel: { backgroundColor: 'white', borderRadius: '24px 24px 0 0', padding: '16px', boxShadow: '0 -4px 20px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', gap: '10px' },
+ tripPanel: { backgroundColor: 'white', borderRadius: '24px 24px 0 0', padding: '12px 16px', boxShadow: '0 -4px 20px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', gap: '8px', position: 'relative', maxHeight: '45vh', overflowY: 'auto' },
   etaBar: { display: 'flex', justifyContent: 'space-around', alignItems: 'center', backgroundColor: '#1a1a2e', borderRadius: '12px', padding: '12px' },
   etaItem: { textAlign: 'center' },
   etaNum: { fontSize: '18px', fontWeight: 'bold', color: 'white', margin: '0 0 2px 0' },
@@ -1040,6 +1109,7 @@ const styles = {
 };
 
 export default DriverDashboard;
+
 
 
 

@@ -5,13 +5,14 @@ import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-
+import CancelModal from '../components/CancelModal';
 import L from 'leaflet';
 import { connectWebSocket, disconnectWebSocket, sendNotification } from '../utils/notifications';
 import { initializePaystackPayment } from '../utils/payment';
 import NotificationBell from '../components/NotificationBell';
 import ChangePassword from '../components/ChangePassword';
 import SOSButton from '../components/SOSButton';
+
 import DarkModeToggle from '../components/DarkModeToggle';
 import WithdrawModal from '../components/WithdrawModal';
 const API = 'https://rideshare-backend-production-32f5.up.railway.app';
@@ -70,6 +71,7 @@ function NavigationMap({ driverPos, targetLat, targetLng, color, onRouteInfo }) 
   const [steps, setSteps] = useState([]);
   const [nextStep, setNextStep] = useState(null);
   const prevPosRef = useRef(null);
+
 
   useEffect(() => {
     if (driverPos) {
@@ -216,6 +218,7 @@ function DriverDashboard() {
   const [passengerRating, setPassengerRating] = useState(5);
   const [passengerComment, setPassengerComment] = useState('');
   const [routeInfo, setRouteInfo] = useState(null);
+  const [showCancelModal, setShowCancelModal] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const prevRequestCount = useRef(0);
 const [showWithdraw, setShowWithdraw] = useState(false);
@@ -650,7 +653,8 @@ const [showWithdraw, setShowWithdraw] = useState(false);
                 <p style={styles.cardDetail}>🕐 {ride.departure_time} | 💺 {ride.seats_available} seats | GH₵ {ride.price}</p>
                 <div style={styles.cardFooter}>
                   <span style={{...styles.badge, backgroundColor: ride.status === 'active' ? '#34a853' : '#888'}}>{ride.status}</span>
-                  {ride.status === 'active' && <button style={styles.cancelBtn} onClick={() => handleCancelRide(ride.id)}>Cancel</button>}
+                {ride.status === 'active' && <button style={styles.cancelBtn} onClick={() => setShowCancelModal(ride.id)}>Cancel</button>}
+                {showCancelModal === ride.id && <CancelModal bookingId={ride.id} role='driver' onClose={() => setShowCancelModal(null)} onSuccess={(msg) => { setMessage(msg); fetchAll(); setTimeout(() => setMessage(''), 3000); }} />}
                 </div>
               </div>
             ))}
@@ -1109,6 +1113,8 @@ const styles = {
 };
 
 export default DriverDashboard;
+
+
 
 
 

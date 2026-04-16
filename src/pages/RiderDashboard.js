@@ -5,12 +5,14 @@ import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import ScheduledRides from '../components/ScheduledRides';
+import CancelModal from '../components/CancelModal';
 import L from 'leaflet';
 import { generateReceipt } from '../utils/receiptGenerator';
 import { connectWebSocket, disconnectWebSocket, sendNotification } from '../utils/notifications';
 import { initializePaystackPayment } from '../utils/payment';
 import NotificationBell from '../components/NotificationBell';
 import ChangePassword from '../components/ChangePassword';
+
 import DarkModeToggle from '../components/DarkModeToggle';
 
 const API = 'https://rideshare-backend-production-32f5.up.railway.app';
@@ -114,6 +116,7 @@ function RiderDashboard() {
   const [selectedChat, setSelectedChat] = useState(null);
   const [chatMessages, setChatMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
+  const [showCancelModal, setShowCancelModal] = useState(null);
   const [fromCity, setFromCity] = useState('');
   const [toCity, setToCity] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -131,6 +134,9 @@ function RiderDashboard() {
   const [routeInfo, setRouteInfo] = useState(null);
   const [showTripChat, setShowTripChat] = useState(false);
   const [tripChatMessages, setTripChatMessages] = useState([]);
+
+
+
   const [tripNewMessage, setTripNewMessage] = useState('');
   const [notifications, setNotifications] = useState([]);
 
@@ -627,8 +633,9 @@ const [surge, setSurge] = useState({ surgeMultiplier: 1, surgeMessage: '', isSur
                 <div style={styles.tripFooter}>
                   <span style={{...styles.statusBadge, backgroundColor: booking.booking_status === 'pending' ? '#f9a825' : booking.booking_status === 'accepted' ? '#34a853' : booking.booking_status === 'started' ? '#1a73e8' : booking.booking_status === 'completed' ? '#34a853' : '#888'}}>{booking.booking_status}</span>
                   <div style={styles.tripActionBtns}>
-                    {booking.booking_status === 'pending' && <button style={styles.cancelBtn} onClick={() => handleCancelBooking(booking.id)}>Cancel</button>}
-                    {booking.booking_status === 'completed' && <button style={styles.rateBtn} onClick={() => setSelectedRide(booking)}>⭐ Rate</button>}
+                   {booking.booking_status === 'pending' && <button style={styles.cancelBtn} onClick={() => setShowCancelModal(booking.id)}>Cancel</button>}
+                  {booking.booking_status === 'pending' && <button style={styles.cancelBtn} onClick={() => setShowCancelModal(booking.id)}>Cancel</button>}
+                  {showCancelModal === booking.id && <CancelModal bookingId={booking.id} role='rider' onClose={() => setShowCancelModal(null)} onSuccess={(msg) => { setMessage(msg); fetchAll(); setTimeout(() => setMessage(''), 3000); }} />}
 {booking.booking_status === 'completed' && <button style={styles.receiptBtn} onClick={() => generateReceipt(booking)}>🧾 Receipt</button>}
                   </div>
                 </div>
@@ -1104,4 +1111,5 @@ tripPanel: { backgroundColor: 'white', borderRadius: '24px 24px 0 0', padding: '
 };
 
 export default RiderDashboard;
+
 

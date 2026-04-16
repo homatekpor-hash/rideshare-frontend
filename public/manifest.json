@@ -1,22 +1,22 @@
 {
   "short_name": "Ryde",
-  "name": "Ryde Ghana - Your Journey Awaits",
+  "name": "Ryde Ghana - Ride Sharing",
   "icons": [
     {
-      "src": "/logo.png",
+      "src": "logo.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
-      "src": "/logo.png",
+      "src": "logo.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ],
-  "start_url": "/",
+  "start_url": ".",
   "display": "standalone",
   "theme_color": "#1a1a2e",
-  "background_color": "#1a1a2e",
-  "orientation": "portrait",
-  "description": "Ghana's smartest ride-sharing app"
+  "background_color": "#1a1a2e"
 }

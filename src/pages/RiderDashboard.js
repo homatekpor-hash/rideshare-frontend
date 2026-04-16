@@ -574,6 +574,7 @@ const [surge, setSurge] = useState({ surgeMultiplier: 1, surgeMessage: '', isSur
                   {ride.driver_phone && <a href={`tel:${ride.driver_phone}`} style={styles.callDriverBtn}>📞 Call</a>}
                   <button style={styles.msgDriverBtn} onClick={() => openChatWithDriver(ride.driver_id, ride.driver_name)}>💬 Message</button>
                   <button style={styles.bookNowBtn} onClick={() => handleBookRide(ride)}>Book Now</button>
+                  <button style={styles.viewProfileBtn} onClick={() => navigate(`/driver/${ride.driver_id}`)}>👤 Profile</button>
                 </div>
               </div>
             ))}
@@ -901,6 +902,7 @@ const [surge, setSurge] = useState({ surgeMultiplier: 1, surgeMessage: '', isSur
 
 const styles = {
   app: { display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#fff', overflow: 'hidden', maxWidth: '480px', margin: '0 auto', position: 'relative' },
+ viewProfileBtn: { flex: 1, padding: '10px', backgroundColor: '#f8f9fa', color: '#333', border: '1px solid #ddd', borderRadius: '10px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' },
   toast: { position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)', backgroundColor: '#333', color: 'white', padding: '12px 24px', borderRadius: '30px', fontSize: '14px', zIndex: 9999, whiteSpace: 'nowrap', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' },
  receiptBtn: { padding: '6px 14px', backgroundColor: '#1a73e8', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' },
   tripScreen: { position: 'fixed', top: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '480px', height: '100vh', zIndex: 4000, display: 'flex', flexDirection: 'column' },

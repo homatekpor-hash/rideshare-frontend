@@ -597,16 +597,16 @@ const [showWithdraw, setShowWithdraw] = useState(false);
               <p style={styles.earningsBig}>GH₵ {earnings.totalNet?.toFixed(2) || '0.00'}</p>
               <p style={styles.earningsLbl}>Total received (after 10% commission)</p>
             </div>
-            <button style={styles.withdrawBtn2} onClick={() => setShowWithdraw(true)}>
-  💸 Withdraw to Mobile Money
-</button>
+            <button style={styles.withdrawBtn2} onClick={() => setShowWithdraw(true)}>?? Withdraw to Mobile Money</button>
+            {showWithdraw && <WithdrawModal userId={userId} balance={earnings.totalNet} onClose={() => setShowWithdraw(false)} onSuccess={(msg) => { setMessage(msg); fetchAll(); setTimeout(() => setMessage(''), 5000); }} />}
             <PerformanceScore userId={userId} />
-  <WithdrawModal
-    userId={userId}
-    balance={earnings.totalNet}
-    onClose={() => setShowWithdraw(false)}
-    onSuccess={(msg) => { setMessage(msg); fetchAll(); setTimeout(() => setMessage(''), 5000); }}
-  />
+
+
+
+
+
+
+
 )}
             <div style={styles.earningsRow}>
               <div style={styles.earningMini}><p style={styles.earningMiniNum}>GH₵ {earnings.totalCommission?.toFixed(2) || '0.00'}</p><p style={styles.earningMiniLbl}>Commission</p></div>
@@ -956,7 +956,7 @@ const styles = {
   cardFooter: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' },
   badge: { padding: '4px 12px', borderRadius: '20px', color: 'white', fontSize: '12px', fontWeight: 'bold' },
   cancelBtn: { padding: '6px 14px', backgroundColor: '#ea4335', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' },
-  earningsCard: { background: 'linear-gradient(135deg, #1a1a2e, #16213e)', borderRadius: '20px', padding: '28px', textAlign: 'center', color: 'white', marginBottom: '16px' },
+  earningsCard: { background: 'linear-gradient(135deg, #34a853, #1a73e8)', borderRadius: '20px', padding: '28px', textAlign: 'center', color: 'white', marginBottom: '16px', boxShadow: '0 8px 32px rgba(52,168,83,0.3)' },
   earningsBig: { fontSize: '36px', fontWeight: 'bold', margin: '0 0 8px 0' },
   earningsLbl: { fontSize: '13px', opacity: 0.8, margin: 0 },
   earningsRow: { display: 'flex', gap: '12px', marginBottom: '16px' },
@@ -1040,6 +1040,7 @@ const styles = {
 };
 
 export default DriverDashboard;
+
 
 
 

@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import ScheduledRides from '../components/ScheduledRides';
 import L from 'leaflet';
 import { generateReceipt } from '../utils/receiptGenerator';
 import { connectWebSocket, disconnectWebSocket, sendNotification } from '../utils/notifications';
@@ -723,6 +724,7 @@ const [surge, setSurge] = useState({ surgeMultiplier: 1, surgeMessage: '', isSur
               { icon: '🆘', label: 'Help Center', id: 'help' },
               { icon: '🛡️', label: 'Safety', id: 'safety' },
               { icon: '🔒', label: 'Privacy & Security', id: 'privacy' },
+              { icon: '📅', label: 'Scheduled Rides', id: 'scheduled' },
             ].map(item => (
               <button key={item.id} style={styles.accountMenuItem} onClick={() => setActiveTab(item.id)}>
                 <span style={styles.menuIcon}>{item.icon}</span>
@@ -884,12 +886,23 @@ const [surge, setSurge] = useState({ surgeMultiplier: 1, surgeMessage: '', isSur
           </div>
         </div>
       )}
+      )}
 
+      {activeTab === 'scheduled' && (
+        <div style={styles.screen}>
+          <div style={styles.screenHeader}>
+            <button style={styles.backBtn} onClick={() => setActiveTab('account')}>?</button>
+            <h2 style={styles.screenTitle}>Scheduled Rides ??</h2>
+          </div>
+          <div style={styles.content}>
+            <ScheduledRides userId={userId} />
+          </div>
+        </div>
+      )}
       {['home','rides','messages','account','results'].includes(activeTab) && !showSearch && !(activeTrip && (tripStatus === 'accepted' || tripStatus === 'started')) && (
         <div style={styles.bottomNav}>
           {bottomTabs.map(tab => (
             <button key={tab.id} style={{...styles.navBtn, color: activeTab === tab.id ? '#34a853' : '#888'}} onClick={() => setActiveTab(tab.id)}>
-              <span style={styles.navIcon}>{tab.icon}</span>
               <span style={styles.navLabel}>{tab.label}</span>
               {tab.id === 'messages' && conversations.length > 0 && <span style={styles.navDot} />}
             </button>

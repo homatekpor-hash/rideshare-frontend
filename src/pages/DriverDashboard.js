@@ -670,7 +670,7 @@ const [showWithdraw, setShowWithdraw] = useState(false);
               <p style={styles.earningsBig}>GH₵ {earnings.totalNet?.toFixed(2) || '0.00'}</p>
               <p style={styles.earningsLbl}>Total received (after 10% commission)</p>
             </div>
-            <button style={styles.withdrawBtn2} onClick={() => setShowWithdraw(true)}>?? Withdraw to Mobile Money</button>
+            <button style={styles.withdrawBtn2} onClick={() => setShowWithdraw(true)}>Withdraw to Mobile Money</button>
             {showWithdraw && <WithdrawModal userId={userId} balance={earnings.totalNet} onClose={() => setShowWithdraw(false)} onSuccess={(msg) => { setMessage(msg); fetchAll(); setTimeout(() => setMessage(''), 5000); }} />}
             <PerformanceScore userId={userId} />
 
@@ -680,7 +680,7 @@ const [showWithdraw, setShowWithdraw] = useState(false);
 
 
 
-)}
+
             <div style={styles.earningsRow}>
               <div style={styles.earningMini}><p style={styles.earningMiniNum}>GH₵ {earnings.totalCommission?.toFixed(2) || '0.00'}</p><p style={styles.earningMiniLbl}>Commission</p></div>
               <div style={styles.earningMini}><p style={styles.earningMiniNum}>{earnings.totalPassengers || 0}</p><p style={styles.earningMiniLbl}>Passengers</p></div>

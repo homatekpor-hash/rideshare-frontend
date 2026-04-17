@@ -242,12 +242,12 @@ const [showWithdraw, setShowWithdraw] = useState(false);
       if (data.type === 'new_request') {
         fetchRequests();
         setNotifications(prev => [{ message: 'New ride request!', icon: '🔔', time, read: false }, ...prev]);
-      }if (data.type === 'broadcast') {
-  sendNotification(data.title || 'Ryde', data.message);
-  setNotifications(prev => [{ message: data.message, icon: '📢', time: new Date().toLocaleTimeString(), read: false }, ...prev]);
-}
+      }
+      if (data.type === 'broadcast') {
+        sendNotification(data.title || 'Ryde Announcement', data.message);
+        setNotifications(prev => [{ message: data.message, icon: '??', time: new Date().toLocaleTimeString(), read: false }, ...prev]);
+      }
       if (data.type === 'documents_verified') {
-        sendNotification('✅ Documents Verified!', data.message);
         setNotifications(prev => [{ message: data.message, icon: '✅', time, read: false }, ...prev]);
         fetchAll();
       }

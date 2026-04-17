@@ -89,15 +89,15 @@ function AdminDashboard() {
   const maxBooking = Math.max(...bookingsByStatus.map(b => b.count), 1);
 
   const tabs = [
-    { id: 'dashboard', icon: '📊', label: 'Dashboard' },
-    { id: 'users', icon: '👥', label: 'Users' },
+    { id: 'dashboard', icon: '??', label: 'Dashboard' },
+    { id: 'users', icon: '??', label: 'Users' },
     { id: 'surge', icon: '??', label: 'Surge' },
-    { id: 'broadcast', icon: '📢', label: 'Broadcast' },
-    { id: 'rides', icon: '🚗', label: 'Rides' },
-    { id: 'bookings', icon: '🎫', label: 'Bookings' },
-    { id: 'documents', icon: '📄', label: 'Verify' },
-    { id: 'complaints', icon: '🆘', label: 'Complaints' },
-    { id: 'revenue', icon: '💰', label: 'Revenue' },
+    { id: 'broadcast', icon: '??', label: 'Broadcast' },
+    { id: 'rides', icon: '??', label: 'Rides' },
+    { id: 'bookings', icon: '??', label: 'Bookings' },
+    { id: 'documents', icon: '??', label: 'Verify' },
+    { id: 'complaints', icon: '??', label: 'Complaints' },
+    { id: 'revenue', icon: '??', label: 'Revenue' },
   ];
 
   return (

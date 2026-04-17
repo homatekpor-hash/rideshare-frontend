@@ -1,6 +1,25 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+function FAQItem({ question, answer }) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <div style={faqItemStyles.container} onClick={() => setOpen(!open)}>
+      <div style={faqItemStyles.header}>
+        <p style={faqItemStyles.question}>{question}</p>
+        <span style={faqItemStyles.arrow}>{open ? '▲' : '▼'}</span>
+      </div>
+      {open && <p style={faqItemStyles.answer}>{answer}</p>}
+    </div>
+  );
+}
 
+const faqItemStyles = {
+  container: { backgroundColor: 'white', borderRadius: '12px', padding: '16px', marginBottom: '10px', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.06)' },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  question: { fontSize: '15px', fontWeight: 'bold', color: '#1a1a2e', margin: 0, flex: 1 },
+  arrow: { fontSize: '12px', color: '#34a853', marginLeft: '12px', fontWeight: 'bold' },
+  answer: { fontSize: '14px', color: '#555', lineHeight: '1.6', margin: '12px 0 0 0', paddingTop: '12px', borderTop: '1px solid #f0f0f0' },
+};
 function Home() {
   const navigate = useNavigate();
   const handleGetStarted = () => {
@@ -128,7 +147,22 @@ function Home() {
             <p style={styles.storyName}>{story.name}</p>
             <p style={styles.storyRole}>{story.role}</p>
           </div>
-        </div>
+        </div>{/* FAQ Section */}
+<div style={styles.faq}>
+  <h2 style={styles.faqTitle}>Frequently Asked Questions</h2>
+  {[
+    { q: 'How does Ryde work?', a: 'Ryde connects riders with drivers going the same way. Search for your route, find a driver, book and pay via Mobile Money. Simple!' },
+    { q: 'How much does a ride cost?', a: 'Prices are set by drivers and vary by route. You see the full price before booking. No hidden charges!' },
+    { q: 'How do I become a driver?', a: 'Register as a driver, upload your documents (license, Ghana Card, insurance), get verified by admin and start earning!' },
+    { q: 'Is Ryde safe?', a: 'Yes! All drivers are verified with documents. You can share your live trip with family and use the SOS button in emergencies.' },
+    { q: 'How do I pay?', a: 'We accept MTN Mobile Money, Vodafone Cash and AirtelTigo Money. Payment is processed securely via Paystack.' },
+    { q: 'What if my driver cancels?', a: 'You will be notified immediately and can search for another driver. Your payment is refunded to your wallet.' },
+    { q: 'How do drivers get paid?', a: 'Drivers earn 90% of the fare (10% goes to Ryde). Withdraw earnings anytime to your Mobile Money account.' },
+    { q: 'Which routes does Ryde cover?', a: 'We cover 40+ routes across Ghana including Accra, Kasoa, Tema, Kumasi, Cape Coast, Tamale and many more!' },
+  ].map((item, i) => (
+    <FAQItem key={i} question={item.q} answer={item.a} />
+  ))}
+</div>
       </div>
     ))}
   </div>
@@ -150,6 +184,8 @@ const styles = {
   heroContent: { maxWidth: '500px', margin: '0 auto' },
   heroLogo: { width: '100px', height: '100px', borderRadius: '50%', objectFit: 'cover', marginBottom: '24px', border: '4px solid rgba(255,255,255,0.2)' },
   heroTitle: { fontSize: '36px', fontWeight: 'bold', color: 'white', margin: '0 0 16px 0' },
+  faq: { padding: '48px 24px', backgroundColor: 'white', maxWidth: '480px', margin: '0 auto' },
+faqTitle: { fontSize: '28px', fontWeight: 'bold', color: '#1a1a2e', textAlign: 'center', margin: '0 0 32px 0' },
   heroSubtitle: { fontSize: '16px', color: 'rgba(255,255,255,0.8)', margin: '0 0 32px 0', lineHeight: '1.6' },
   heroBtns: { display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' },
   heroRegisterBtn: { padding: '14px 32px', backgroundColor: '#34a853', color: 'white', textDecoration: 'none', borderRadius: '14px', fontSize: '16px', fontWeight: 'bold' },

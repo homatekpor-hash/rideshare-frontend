@@ -89,15 +89,15 @@ function AdminDashboard() {
   const maxBooking = Math.max(...bookingsByStatus.map(b => b.count), 1);
 
   const tabs = [
-    { id: 'dashboard', icon: '??', label: 'Dashboard' },
-    { id: 'users', icon: '??', label: 'Users' },
-    { id: 'surge', icon: '??', label: 'Surge' },
-    { id: 'broadcast', icon: '??', label: 'Broadcast' },
-    { id: 'rides', icon: '??', label: 'Rides' },
-    { id: 'bookings', icon: '??', label: 'Bookings' },
-    { id: 'documents', icon: '??', label: 'Verify' },
-    { id: 'complaints', icon: '??', label: 'Complaints' },
-    { id: 'revenue', icon: '??', label: 'Revenue' },
+    { id: 'dashboard', icon: '📊', label: 'Dashboard' },
+    { id: 'users', icon: '👥', label: 'Users' },
+    { id: 'surge', icon: '📈', label: 'Surge' },
+    { id: 'broadcast', icon: '📢', label: 'Broadcast' },
+    { id: 'rides', icon: '🚗', label: 'Rides' },
+    { id: 'bookings', icon: '🎫', label: 'Bookings' },
+    { id: 'documents', icon: '📄', label: 'Verify' },
+    { id: 'complaints', icon: '🆘', label: 'Complaints' },
+    { id: 'revenue', icon: '💰', label: 'Revenue' },
   ];
 
   return (
@@ -123,7 +123,7 @@ function AdminDashboard() {
 
 
 
-        <button style={styles.logoutBtn} onClick={handleLogout}>?? Logout</button>
+       <button style={styles.logoutBtn} onClick={handleLogout}>🚪 Logout</button>
       </div>
 
       {/* Main Content */}
@@ -510,7 +510,7 @@ const styles = {
   sidebarLogo: { width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' },
   sidebarTitle: { color: 'white', fontWeight: 'bold', fontSize: '16px', margin: 0 },
   sidebarBtn: { display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 20px', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.8)', fontSize: '14px', textAlign: 'left', position: 'relative' },
-  sidebarIcon: { fontSize: '18px', width: '24px' },
+  sidebarIcon: { fontSize: '0px', width: '0px' },
   sidebarLabel: { flex: 1 },
   sidebarBadge: { backgroundColor: '#ea4335', color: 'white', borderRadius: '10px', fontSize: '10px', padding: '2px 6px', fontWeight: 'bold' },
   logoutBtn: { marginTop: 'auto', padding: '12px 20px', border: 'none', cursor: 'pointer', color: '#ea4335', backgroundColor: 'transparent', fontSize: '14px', textAlign: 'left' },

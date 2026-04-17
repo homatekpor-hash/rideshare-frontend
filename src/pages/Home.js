@@ -28,7 +28,7 @@ function Home() {
           <h1 style={styles.heroTitle}>Your Journey Awaits</h1>
           <p style={styles.heroSubtitle}>Ghana's smartest ride-sharing app. Connect with drivers going your way across Accra, Kasoa, Tema, Kumasi and beyond.</p>
           <div style={styles.heroBtns}>
-            <button onClick={handleGetStarted} style={{...styles.heroRegisterBtn, border: 'none', cursor: 'pointer'}}>?? Get Started</button>
+            <button onClick={handleGetStarted} style={{...styles.heroRegisterBtn, border: 'none', cursor: 'pointer'}}>Get Started</button>
             <Link to="/login" style={styles.heroLoginBtn}>Login</Link>
           </div>
         </div>
@@ -110,7 +110,29 @@ function Home() {
           <Link to="/login" style={styles.footerLink}>Login</Link>
           <Link to="/register" style={styles.footerLink}>Register</Link>
         </div>
+      </div>{/* Success Stories */}
+<div style={styles.stories}>
+  <h2 style={styles.storiesTitle}>What Our Users Say</h2>
+  <div style={styles.storiesGrid}>
+    {[
+      { name: 'Abena K.', role: 'Rider', text: 'Ryde has made my daily commute from Ablekuma to Accra so easy! I save money and always get a safe ride.', rating: 5 },
+      { name: 'Kwame A.', role: 'Driver', text: 'I have been earning consistently since joining Ryde. The app is easy to use and passengers are respectful.', rating: 5 },
+      { name: 'Ama S.', role: 'Rider', text: 'I love that I can track my ride and share it with my family. Feels very safe to use!', rating: 5 },
+    ].map((story, i) => (
+      <div key={i} style={styles.storyCard}>
+        <div style={styles.storyStars}>{'⭐'.repeat(story.rating)}</div>
+        <p style={styles.storyText}>"{story.text}"</p>
+        <div style={styles.storyAuthor}>
+          <div style={styles.storyAvatar}>{story.name.charAt(0)}</div>
+          <div>
+            <p style={styles.storyName}>{story.name}</p>
+            <p style={styles.storyRole}>{story.role}</p>
+          </div>
+        </div>
       </div>
+    ))}
+  </div>
+</div>
     </div>
   );
 }
@@ -162,6 +184,16 @@ const styles = {
   footerTagline: { color: 'rgba(255,255,255,0.6)', fontSize: '14px', margin: '0 0 16px 0' },
   footerCopy: { color: 'rgba(255,255,255,0.4)', fontSize: '12px', margin: '0 0 16px 0' },
   footerLinks: { display: 'flex', gap: '16px', justifyContent: 'center' },
+ stories: { padding: '48px 24px', backgroundColor: '#f8f9fa' },
+storiesTitle: { fontSize: '28px', fontWeight: 'bold', color: '#1a1a2e', textAlign: 'center', margin: '0 0 32px 0' },
+storiesGrid: { display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '480px', margin: '0 auto' },
+storyCard: { backgroundColor: 'white', borderRadius: '16px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
+storyStars: { fontSize: '16px', marginBottom: '10px' },
+storyText: { fontSize: '14px', color: '#555', lineHeight: '1.6', margin: '0 0 14px 0', fontStyle: 'italic' },
+storyAuthor: { display: 'flex', alignItems: 'center', gap: '10px' },
+storyAvatar: { width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#34a853', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 'bold', color: 'white' },
+storyName: { fontSize: '14px', fontWeight: 'bold', color: '#333', margin: 0 },
+storyRole: { fontSize: '12px', color: '#888', margin: 0 },
   footerLink: { color: 'rgba(255,255,255,0.7)', textDecoration: 'none', fontSize: '14px', fontWeight: 'bold' },
 };
 

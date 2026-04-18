@@ -237,7 +237,17 @@ const [showWithdraw, setShowWithdraw] = useState(false);
       () => setDriverPos([5.6037, -0.1870]),
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
     );
+    const locationInterval = setInterval(async () => {
+      if (driverPos) {
+        try {
+        await axios.post(`${API}/driver/location`, { driverId: userId, lat: driverPos[0], lng: driverPos[1] });        } catch (e) {}
+      }
+    }, 5000);
+
     connectWebSocket(userId, (data) => {
+
+
+
       const time = new Date().toLocaleTimeString();
       if (data.type === 'new_request') {
         fetchRequests();
@@ -262,7 +272,7 @@ const [showWithdraw, setShowWithdraw] = useState(false);
       }
     });
     const interval = setInterval(() => { fetchRequests(); fetchActiveTrip(); }, 10000);
-    return () => { clearInterval(interval); navigator.geolocation.clearWatch(watchId); disconnectWebSocket(); };
+    return () => { clearInterval(interval); clearInterval(locationInterval); navigator.geolocation.clearWatch(watchId); disconnectWebSocket(); };
   }, []);
 
   useEffect(() => {

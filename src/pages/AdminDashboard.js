@@ -270,6 +270,30 @@ function AdminDashboard() {
                   </div>
                   <div style={styles.td}>
                     <span style={{...styles.roleBadge, backgroundColor: user.role === 'driver' ? '#34a853' : user.role === 'admin' ? '#ea4335' : '#1a73e8'}}>{user.role}</span>
+                 <div style={styles.td}>
+  {user.role !== 'admin' && (
+    <div style={{display:'flex', gap:'4px'}}>
+      <button 
+        style={{padding:'4px 8px', backgroundColor: user.is_banned ? '#34a853' : '#f9a825', color:'white', border:'none', borderRadius:'6px', fontSize:'11px', cursor:'pointer'}}
+        onClick={async () => {
+          await fetch(`${API}/admin/users/${user.id}/${user.is_banned ? 'unban' : 'ban'}`, {method:'PUT'});
+          fetchAll();
+        }}>
+        {user.is_banned ? 'Unban' : 'Ban'}
+      </button>
+      <button 
+        style={{padding:'4px 8px', backgroundColor:'#ea4335', color:'white', border:'none', borderRadius:'6px', fontSize:'11px', cursor:'pointer'}}
+        onClick={async () => {
+          if(window.confirm('Delete this user permanently?')) {
+            await fetch(`${API}/admin/users/${user.id}`, {method:'DELETE'});
+            fetchAll();
+          }
+        }}>
+        Delete
+      </button>
+    </div>
+  )}
+</div>
                   </div>
                   <div style={styles.td}>
                     <span style={{color: user.is_online ? '#34a853' : '#888', fontWeight: 'bold', fontSize: '12px'}}>{user.is_online ? '🟢 Online' : '⚫ Offline'}</span>

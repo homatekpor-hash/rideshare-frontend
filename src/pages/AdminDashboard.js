@@ -301,6 +301,14 @@ function AdminDashboard() {
                   <div style={styles.td}>
                     <p style={styles.tdMain}>GH₵ {user.wallet_balance?.toFixed(2) || '0.00'}</p>
                   </div>
+                  <div style={styles.td}>
+                    {user.role !== 'admin' && (
+                      <div style={{display:'flex', gap:'4px'}}>
+                        <button style={{padding:'4px 8px', backgroundColor: user.is_banned ? '#34a853' : '#f9a825', color:'white', border:'none', borderRadius:'6px', fontSize:'11px', cursor:'pointer'}} onClick={async () => { await fetch(`${API}/admin/users/${user.id}/${user.is_banned ? 'unban' : 'ban'}`, {method:'PUT'}); fetchAll(); }}>{user.is_banned ? 'Unban' : 'Ban'}</button>
+                        <button style={{padding:'4px 8px', backgroundColor:'#ea4335', color:'white', border:'none', borderRadius:'6px', fontSize:'11px', cursor:'pointer'}} onClick={async () => { if(window.confirm('Delete?')){ await fetch(`${API}/admin/users/${user.id}`, {method:'DELETE'}); fetchAll(); }}}>Delete</button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

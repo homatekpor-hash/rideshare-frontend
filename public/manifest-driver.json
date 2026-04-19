@@ -1,7 +1,7 @@
 {
-  "short_name": "Ryde",
-  "name": "Ryde Ghana - Ride Sharing",
-  "description": "Ghana's smartest ride sharing app",
+  "short_name": "Ryde Driver",
+  "name": "Ryde Driver - Earn Money Driving",
+  "description": "Drive with Ryde Ghana and earn money on your existing trips",
   "icons": [
     {
       "src": "logo.png",
@@ -16,9 +16,9 @@
       "purpose": "any maskable"
     }
   ],
-  "start_url": "/",
+  "start_url": "/driver",
   "display": "standalone",
-  "theme_color": "#1a1a2e",
+  "theme_color": "#1a73e8",
   "background_color": "#1a1a2e",
   "orientation": "portrait"
 }

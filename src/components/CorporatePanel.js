@@ -59,7 +59,7 @@ function CorporatePanel() {
 
   const handleDeactivate = async (id) => {
     if (window.confirm('Deactivate this account?')) {
-      await axios.delete(`${API}/corporate/${id}`);
+      await axios.delete(`${API}/corporate/deactivate/${id}`);
       fetchAccounts();
     }
   };

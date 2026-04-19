@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import BroadcastPanel from '../components/BroadcastPanel';
+import CorporatePanel from '../components/CorporatePanel';
 import SurgePanel from '../components/SurgePanel';
 
 const API = 'https://rideshare-backend-production-32f5.up.railway.app';
@@ -98,6 +99,7 @@ function AdminDashboard() {
     { id: 'documents', icon: '📄', label: 'Verify' },
     { id: 'complaints', icon: '🆘', label: 'Complaints' },
     { id: 'revenue', icon: '💰', label: 'Revenue' },
+    { id: 'corporate', icon: '🏢', label: 'Corporate' },
   ];
 
   return (
@@ -510,7 +512,12 @@ function AdminDashboard() {
             </div>
           </div>
         )}
-
+{activeTab === 'corporate' && (
+  <div style={styles.content}>
+    <h1 style={styles.pageTitle}>Corporate Accounts</h1>
+    <CorporatePanel />
+  </div>
+)}
         {activeTab === 'surge' && (
           <div style={styles.content}>
             <h1 style={styles.pageTitle}>Surge Pricing</h1>

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
-const API = 'https://rideshare-backend-production-32f5.up.railway.app';
+const API = 'https://api.rydeghanas.com';
 
 function ChangePassword({ userId }) {
   const [currentPassword, setCurrentPassword] = useState('');

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const API = 'https://rideshare-backend-production-32f5.up.railway.app';
+const API = 'https://api.rydeghanas.com';
 
 function Profile() {
   const [user, setUser] = useState(null);

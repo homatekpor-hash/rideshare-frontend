@@ -5,7 +5,7 @@ import BroadcastPanel from '../components/BroadcastPanel';
 import CorporatePanel from '../components/CorporatePanel';
 import SurgePanel from '../components/SurgePanel';
 
-const API = 'https://rideshare-backend-production-32f5.up.railway.app';
+const API = 'https://api.rydeghanas.com';
 
 function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('dashboard');

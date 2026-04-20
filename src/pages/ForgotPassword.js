@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 
-const API = 'https://rideshare-backend-production-32f5.up.railway.app';
+const API = 'https://api.rydeghanas.com';
 
 function ForgotPassword() {
   const [email, setEmail] = useState('');

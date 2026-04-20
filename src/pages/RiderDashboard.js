@@ -15,7 +15,7 @@ import ChangePassword from '../components/ChangePassword';
 
 import DarkModeToggle from '../components/DarkModeToggle';
 
-const API = 'https://rideshare-backend-production-32f5.up.railway.app';
+const API = 'https://api.rydeghanas.com';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({

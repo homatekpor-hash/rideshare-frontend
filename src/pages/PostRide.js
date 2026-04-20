@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
-const API = 'https://rideshare-backend-production-32f5.up.railway.app';
+const API = 'https://api.rydeghanas.com';
 
 const GHANA_STOPS = [
   'Accra Central', 'Circle', 'Kaneshie', 'Mallam Junction', 'Odorkor',

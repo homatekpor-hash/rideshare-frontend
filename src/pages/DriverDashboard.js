@@ -70,94 +70,160 @@ function NavigationMap({ driverPos, targetLat, targetLng, color, onRouteInfo }) 
   const [routeCoords, setRouteCoords] = useState([]);
   const [steps, setSteps] = useState([]);
   const [nextStep, setNextStep] = useState(null);
+  const [bearing, setBearing] = useState(0);
+  const [speed, setSpeed] = useState(0);
   const prevPosRef = useRef(null);
+  const routeCoordsRef = useRef([]);
 
+  const calcBearing = (from, to) => {
+    const lat1 = from[0] * Math.PI / 180;
+    const lat2 = to[0] * Math.PI / 180;
+    const dLng = (to[1] - from[1]) * Math.PI / 180;
+    const y = Math.sin(dLng) * Math.cos(lat2);
+    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+  };
 
-  useEffect(() => {
-    if (driverPos) {
-      map.setView(driverPos, 17, { animate: true });
-    }
-  }, [driverPos]);
+  const calcDistance = (from, to) => {
+    const R = 6371000;
+    const dLat = (to[0] - from[0]) * Math.PI / 180;
+    const dLng = (to[1] - from[1]) * Math.PI / 180;
+    const a = Math.sin(dLat/2) ** 2 + Math.cos(from[0] * Math.PI/180) * Math.cos(to[0] * Math.PI/180) * Math.sin(dLng/2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  };
 
-  useEffect(() => {
-    const fetchRoute = async () => {
-      try {
-        const start = driverPos || [5.6037, -0.1870];
-        if (!targetLat || !targetLng) return;
-        const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${targetLng},${targetLat}?overview=full&geometries=geojson&steps=true`);
-        const data = await res.json();
-        if (data.routes && data.routes[0]) {
-          const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-          setRouteCoords(coords);
-          const durationMins = Math.round(data.routes[0].duration / 60);
-          const distanceKm = (data.routes[0].distance / 1000).toFixed(1);
-          if (onRouteInfo) onRouteInfo({ durationMins, distanceKm });
-          const allSteps = data.routes[0].legs[0]?.steps || [];
-          setSteps(allSteps);
-          if (allSteps.length > 0) {
-            const step = allSteps[0];
-            const instruction = getInstruction(step);
-            const distM = Math.round(step.distance);
-            setNextStep({ instruction, distance: distM > 1000 ? `${(distM/1000).toFixed(1)} km` : `${distM} m` });
-            if (distM < 50 && instruction) speak(instruction);
-          }
-        }
-      } catch (e) { console.error('Route error:', e); }
-    };
-    if (driverPos && targetLat && targetLng) {
-      fetchRoute();
-      const interval = setInterval(fetchRoute, 10000);
-      return () => clearInterval(interval);
-    }
-  }, [driverPos, targetLat, targetLng]);
+  const isOffRoute = (pos, coords) => {
+    if (!coords.length) return false;
+    const minDist = Math.min(...coords.map(c => calcDistance(pos, c)));
+    return minDist > 50;
+  };
 
   const getInstruction = (step) => {
     if (!step) return '';
-    const maneuver = step.maneuver?.type;
-    const modifier = step.maneuver?.modifier;
+    const type = step.maneuver?.type;
+    const mod = step.maneuver?.modifier;
     const name = step.name || 'the road';
-    if (maneuver === 'turn') {
-      if (modifier === 'left') return `Turn left onto ${name}`;
-      if (modifier === 'right') return `Turn right onto ${name}`;
-      if (modifier === 'slight left') return `Slight left onto ${name}`;
-      if (modifier === 'slight right') return `Slight right onto ${name}`;
-      if (modifier === 'sharp left') return `Sharp left onto ${name}`;
-      if (modifier === 'sharp right') return `Sharp right onto ${name}`;
-      if (modifier === 'uturn') return `Make a U-turn`;
+    if (type === 'turn') {
+      if (mod === 'left') return `Turn left onto ${name}`;
+      if (mod === 'right') return `Turn right onto ${name}`;
+      if (mod === 'slight left') return `Keep left onto ${name}`;
+      if (mod === 'slight right') return `Keep right onto ${name}`;
+      if (mod === 'sharp left') return `Sharp left onto ${name}`;
+      if (mod === 'sharp right') return `Sharp right onto ${name}`;
+      if (mod === 'uturn') return `Make a U-turn`;
     }
-    if (maneuver === 'depart') return `Head ${modifier} on ${name}`;
-    if (maneuver === 'arrive') return `You have arrived at your destination`;
-    if (maneuver === 'roundabout') return `Enter roundabout`;
-    if (maneuver === 'merge') return `Merge onto ${name}`;
-    if (maneuver === 'straight') return `Continue straight on ${name}`;
+    if (type === 'depart') return `Head ${mod || 'forward'} on ${name}`;
+    if (type === 'arrive') return `Arrived at destination`;
+    if (type === 'roundabout') return `Enter roundabout on ${name}`;
+    if (type === 'merge') return `Merge onto ${name}`;
+    if (type === 'fork') return mod?.includes('left') ? `Keep left` : `Keep right`;
     return `Continue on ${name}`;
   };
 
   const getArrow = (step) => {
-    if (!step) return '⬆️';
-    const maneuver = step.maneuver?.type;
-    const modifier = step.maneuver?.modifier;
-    if (maneuver === 'turn') {
-      if (modifier === 'left') return '⬅️';
-      if (modifier === 'right') return '➡️';
-      if (modifier === 'slight left') return '↖️';
-      if (modifier === 'slight right') return '↗️';
-      if (modifier === 'sharp left') return '↩️';
-      if (modifier === 'sharp right') return '↪️';
-      if (modifier === 'uturn') return '🔄';
+    if (!step) return '↑';
+    const type = step.maneuver?.type;
+    const mod = step.maneuver?.modifier;
+    if (type === 'arrive') return '🏁';
+    if (type === 'roundabout') return '🔄';
+    if (type === 'turn' || type === 'fork') {
+      if (mod === 'left' || mod === 'sharp left') return '←';
+      if (mod === 'right' || mod === 'sharp right') return '→';
+      if (mod === 'slight left') return '↖';
+      if (mod === 'slight right') return '↗';
+      if (mod === 'uturn') return '↩';
     }
-    if (maneuver === 'arrive') return '🏁';
-    if (maneuver === 'roundabout') return '🔄';
-    return '⬆️';
+    return '↑';
   };
 
+  const fetchRoute = async (pos) => {
+    try {
+      const start = pos || driverPos || [5.6037, -0.1870];
+      if (!targetLat || !targetLng) return;
+      const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${targetLng},${targetLat}?overview=full&geometries=geojson&steps=true&annotations=true`);
+      const data = await res.json();
+      if (data.routes && data.routes[0]) {
+        const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+        setRouteCoords(coords);
+        routeCoordsRef.current = coords;
+        const durationMins = Math.round(data.routes[0].duration / 60);
+        const distanceKm = (data.routes[0].distance / 1000).toFixed(1);
+        if (onRouteInfo) onRouteInfo({ durationMins, distanceKm });
+        const allSteps = data.routes[0].legs[0]?.steps || [];
+        setSteps(allSteps);
+        updateNextStep(allSteps, start);
+      }
+    } catch (e) { console.error('Route error:', e); }
+  };
+
+  const updateNextStep = (allSteps, pos) => {
+    if (!allSteps.length || !pos) return;
+    let closestStep = allSteps[0];
+    let minDist = Infinity;
+    allSteps.forEach(step => {
+      if (step.maneuver?.location) {
+        const stepPos = [step.maneuver.location[1], step.maneuver.location[0]];
+        const dist = calcDistance(pos, stepPos);
+        if (dist < minDist) { minDist = dist; closestStep = step; }
+      }
+    });
+    const idx = allSteps.indexOf(closestStep);
+    const nextIdx = Math.min(idx + 1, allSteps.length - 1);
+    const step = allSteps[nextIdx];
+    const instruction = getInstruction(step);
+    const distM = Math.round(step.distance);
+    const distToTurn = step.maneuver?.location ? 
+      Math.round(calcDistance(pos, [step.maneuver.location[1], step.maneuver.location[0]])) : distM;
+    setNextStep({ 
+      instruction, 
+      distance: distToTurn > 1000 ? `${(distToTurn/1000).toFixed(1)} km` : `${distToTurn} m`,
+      arrow: getArrow(step),
+      urgent: distToTurn < 30
+    });
+    if (distToTurn < 30) speak(instruction);
+  };
+
+  useEffect(() => {
+    if (driverPos) {
+      if (prevPosRef.current) {
+        const newBearing = calcBearing(prevPosRef.current, driverPos);
+        setBearing(newBearing);
+        const dist = calcDistance(prevPosRef.current, driverPos);
+        const timeDiff = 3;
+        setSpeed(Math.round((dist / timeDiff) * 3.6));
+        if (steps.length) updateNextStep(steps, driverPos);
+        if (isOffRoute(driverPos, routeCoordsRef.current)) fetchRoute(driverPos);
+      }
+      prevPosRef.current = driverPos;
+      map.setView(driverPos, 18, { animate: true, duration: 1 });
+    }
+  }, [driverPos]);
+
+  useEffect(() => {
+    if (driverPos && targetLat && targetLng) {
+      fetchRoute(driverPos);
+      const interval = setInterval(() => fetchRoute(driverPos), 30000);
+      return () => clearInterval(interval);
+    }
+  }, [targetLat, targetLng]);
+
   const driverIcon = L.divIcon({
-    html: `<div style="background:#1a73e8;width:32px;height:32px;border-radius:50%;border:3px solid white;box-shadow:0 2px 12px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;font-size:18px;">🚗</div>`,
-    className: '', iconSize: [32, 32], iconAnchor: [16, 16],
+    html: `<div style="
+      width:36px;height:36px;
+      background:#1a73e8;
+      border-radius:50%;
+      border:3px solid white;
+      box-shadow:0 2px 12px rgba(0,0,0,0.5);
+      display:flex;align-items:center;justify-content:center;
+      font-size:20px;
+      transform:rotate(${bearing}deg);
+      transition:transform 0.5s ease;
+    ">🚗</div>`,
+    className: '', iconSize: [36, 36], iconAnchor: [18, 18],
   });
 
   const targetIcon = L.divIcon({
-    html: `<div style="background:${color};width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)"></div>`,
+    html: `<div style="background:${color};width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.4)"></div>`,
     className: '', iconSize: [24, 24], iconAnchor: [12, 12],
   });
 
@@ -166,29 +232,43 @@ function NavigationMap({ driverPos, targetLat, targetLng, color, onRouteInfo }) 
       {nextStep && (
         <div style={{
           position: 'absolute', top: '10px', left: '10px', right: '10px',
-          backgroundColor: '#1a1a2e', borderRadius: '14px', padding: '12px 16px',
-          zIndex: 1000, display: 'flex', alignItems: 'center', gap: '12px',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.4)'
+          backgroundColor: nextStep.urgent ? '#ea4335' : '#1a1a2e',
+          borderRadius: '16px', padding: '14px 16px',
+          zIndex: 1000, display: 'flex', alignItems: 'center', gap: '14px',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
+          transition: 'background-color 0.3s ease'
         }}>
-          <span style={{ fontSize: '28px' }}>{steps.length > 0 ? getArrow(steps[0]) : '⬆️'}</span>
-          <div>
-            <p style={{ color: 'white', fontWeight: 'bold', fontSize: '15px', margin: '0 0 2px 0' }}>{nextStep.instruction}</p>
-            <p style={{ color: '#34a853', fontSize: '13px', margin: 0, fontWeight: 'bold' }}>In {nextStep.distance}</p>
+          <div style={{
+            width: '48px', height: '48px', borderRadius: '12px',
+            backgroundColor: 'rgba(255,255,255,0.2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '28px', fontWeight: 'bold', color: 'white', flexShrink: 0
+          }}>{nextStep.arrow}</div>
+          <div style={{flex: 1}}>
+            <p style={{color: 'white', fontWeight: 'bold', fontSize: '16px', margin: '0 0 4px 0', lineHeight: 1.2}}>{nextStep.instruction}</p>
+            <p style={{color: nextStep.urgent ? 'white' : '#34a853', fontSize: '14px', margin: 0, fontWeight: 'bold'}}>
+              In {nextStep.distance}
+            </p>
           </div>
+          {speed > 0 && (
+            <div style={{textAlign: 'center', flexShrink: 0}}>
+              <p style={{color: 'white', fontWeight: 'bold', fontSize: '20px', margin: 0}}>{speed}</p>
+              <p style={{color: 'rgba(255,255,255,0.7)', fontSize: '10px', margin: 0}}>km/h</p>
+            </div>
+          )}
         </div>
       )}
       {driverPos && <Marker position={driverPos} icon={driverIcon} />}
       {targetLat && targetLng && <Marker position={[targetLat, targetLng]} icon={targetIcon} />}
       {routeCoords.length > 0 && (
         <>
-          <Polyline positions={routeCoords} color="#ccc" weight={8} opacity={0.4} />
-          <Polyline positions={routeCoords} color={color} weight={6} opacity={1} />
+          <Polyline positions={routeCoords} color="rgba(255,255,255,0.3)" weight={10} />
+          <Polyline positions={routeCoords} color={color} weight={6} />
         </>
       )}
     </>
   );
 }
-
 function DriverDashboard() {
   const [activeTab, setActiveTab] = useState('home');
   const [isOnline, setIsOnline] = useState(false);
